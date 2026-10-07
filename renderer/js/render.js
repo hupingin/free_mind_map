@@ -4,6 +4,11 @@
 (function () {
   const SVGNS = 'http://www.w3.org/2000/svg';
   const { FONT_SIZE, LINE_HEIGHT, PAD_X, PAD_Y, IMG_H, IMG_MAX_W } = Layout.constants;
+  const MIN_W = 46;
+  const MIN_H = 28;
+  const HANDLE = 14;
+  const DBG = true; // 调试开关：缩放拖拽相关日志
+  const log = (...a) => { if (DBG && typeof console !== 'undefined') console.log('[FMM]', ...a); };
 
   const state = {
     map: null,
@@ -190,17 +195,90 @@
 
     g.appendChild(grp);
 
-    grp.addEventListener('mousedown', (e) => e.stopPropagation());
+    grp.addEventListener('mousedown', (e) => {
+      log('node mousedown', n.id, 'target=', e.target.tagName, 'cls=', e.target.getAttribute && e.target.getAttribute('class'));
+      e.stopPropagation();
+    });
     // 单击即进入内联编辑；双击时第二次点击落在编辑框上，复用同一编辑框、不重复打开
     grp.addEventListener('click', (e) => {
       e.stopPropagation();
       const editing = document.getElementById('inline-editor');
+      log('node click', n.id, 'editingSame=', !!(editing && editing.dataset.nodeId === n.id));
       select(n.id);
       if (editing && editing.dataset.nodeId === n.id) return;
       state.callbacks.onEdit && state.callbacks.onEdit(n.id);
     });
     grp.addEventListener('dblclick', (e) => { e.stopPropagation(); });
     grp.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); state.callbacks.onContext && state.callbacks.onContext(n.id, e); });
+  }
+
+  /* ---------------- 手动缩放节点 ---------------- */
+
+  // 按当前宽度重新计算换行与最小高度（拖拽过程中实时调用）
+  function recomputeBox(n, w, h) {
+    const text = n.text || '节点';
+    const lines = Layout.wrapText(text, Math.max(20, w - 2 * PAD_X));
+    let nh = lines.length * LINE_HEIGHT + 2 * PAD_Y;
+    if (n.image) nh += IMG_H + 6;
+    n._lines = lines;
+    n._w = w;
+    n._h = Math.max(h, nh);
+  }
+
+  // 仅重绘单个节点组（拖拽预览，不影响其它节点位置）
+  function redrawSingleNode(n) {
+    const parent = state.viewport && state.viewport.querySelector('.nodes');
+    if (!parent) return;
+    const oldG = parent.querySelector(`.node[data-id="${n.id}"]`);
+    if (!oldG) return;
+    const tmp = el('g', {});
+    drawNode(tmp, n);
+    const fresh = tmp.firstChild;
+    if (fresh) parent.replaceChild(fresh, oldG);
+    // 拖拽过程中保留选中虚线框与缩放手柄，避免重绘后选中态“消失”
+    if (n.id === state.selectedId) {
+      fresh.appendChild(makeSelRect(n));
+      fresh.appendChild(makeHandle(n));
+    }
+  }
+
+  function startResize(e, n) {
+    e.preventDefault();
+    e.stopPropagation();
+    // 若内联编辑框正打开（覆盖在节点上，会拦截手柄的 mousedown），先关闭它，保证拖拽不被挡
+    const editing = document.getElementById('inline-editor');
+    if (editing) { editing.blur(); editing.remove(); }
+    const k = state.view.k || 1;
+    const startX = e.clientX, startY = e.clientY;
+    const startW = n._w, startH = n._h;
+    log('startResize ENTER', n.id, 'k=', k, 'startW=', startW, 'startH=', startH, 'editorWasOpen=', !!editing);
+    let moved = false;
+    let moveCount = 0;
+    const onMove = (ev) => {
+      moved = true;
+      const dw = (ev.clientX - startX) / k;
+      const dh = (ev.clientY - startY) / k;
+      const w = Math.max(MIN_W, startW + dw);
+      const h = Math.max(MIN_H, startH + dh);
+      if (moveCount % 4 === 0) log('  resize move', 'dw=', dw.toFixed(1), 'dh=', dh.toFixed(1), 'w=', w.toFixed(1), 'h=', h.toFixed(1));
+      moveCount++;
+      recomputeBox(n, w, h);
+      redrawSingleNode(n);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      log('resize onUp', 'moved=', moved, 'finalW=', n._w.toFixed(1), 'finalH=', n._h.toFixed(1));
+      if (!moved) return;
+      // 提交为用户自定义尺寸，整树重新布局让连线/父节点归位
+      n.width = Math.round(n._w);
+      n.height = Math.round(n._h);
+      Layout.layout(state.map);
+      draw();
+      state.callbacks.onResize && state.callbacks.onResize(n.id);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   /* ---------------- 主渲染 ---------------- */
@@ -237,6 +315,19 @@
     });
   }
 
+  function makeHandle(n) {
+    // 手柄放在节点右下角外侧：露出在节点框之外，避免被内联编辑框（覆盖整个节点）挡住，保证可抓取
+    const handle = el('rect', {
+      x: n._w - 3, y: n._h - 3, width: HANDLE, height: HANDLE,
+      rx: 2, ry: 2,
+      class: 'resize-handle', fill: state.theme.selected, stroke: '#ffffff', 'stroke-width': 1.5,
+    });
+    log('makeHandle', n.id, 'x=', n._w - 3, 'y=', n._h - 3);
+    handle.addEventListener('mousedown', (e) => startResize(e, n));
+    handle.addEventListener('click', (e) => e.stopPropagation());
+    return handle;
+  }
+
   function applySelection() {
     if (!state.viewport) return;
     const groups = state.viewport.querySelectorAll('.node');
@@ -245,16 +336,34 @@
       const id = g.getAttribute('data-id');
       const isSel = id === state.selectedId;
       g.setAttribute('class', isSel ? 'node selected' : 'node');
-      // 移除旧的虚线框
-      let dash = null;
+      // 移除旧的虚线框与缩放手柄
+      let dash = null, handle = null;
       g.childNodes.forEach((c) => {
         const tname = (c.tagName || c.tag || '').toLowerCase();
-        if (tname === 'rect' && c.getAttribute && c.getAttribute('stroke-dasharray')) dash = c;
+        const sa = c.getAttribute && c.getAttribute('stroke-dasharray');
+        const rh = c.getAttribute && c.getAttribute('class') === 'resize-handle';
+        if (tname === 'rect' && sa) dash = c;
+        if (rh) handle = c;
       });
-      if (!isSel && dash) { g.removeChild(dash); return; }
-      if (isSel && !dash) {
-        const n = Model.find(state.map, id);
-        if (n) g.insertBefore(makeSelRect(n), g.childNodes[1] || null);
+      if (dash) g.removeChild(dash);
+      if (handle) g.removeChild(handle);
+      if (isSel) {
+        const found = Model.find(state.map, id);
+        const n = found && found.node; // 注意：Model.find 返回 {node, parent} 包装对象
+        if (n) g.appendChild(makeSelRect(n));
+        if (n) {
+          const h = g.appendChild(makeHandle(n));
+          log('applySelection: handle ATTACHED', id, 'nodeBox=', n._w + 'x' + n._h, 'viewK=', state.view.k);
+          // 下一帧测量手柄真实屏幕坐标，确认其可见且位置正确
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              try {
+                const r = h.getBoundingClientRect();
+                log('  handle screen rect', 'left=', r.left.toFixed(0), 'top=', r.top.toFixed(0), 'w=', r.width.toFixed(0), 'h=', r.height.toFixed(0), 'visible=', r.width > 0 && r.height > 0);
+              } catch (e) { log('  handle rect measure error', e.message); }
+            });
+          }
+        }
       }
     });
   }
@@ -308,7 +417,9 @@
 
     let panning = false, sx = 0, sy = 0;
     svgEl.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.node')) return;
+      const onNode = !!(e.target.closest && e.target.closest('.node'));
+      if (onNode) { log('svg mousedown: on .node, skip pan'); return; }
+      log('svg mousedown: PAN start');
       panning = true; sx = e.clientX; sy = e.clientY;
       svgEl.style.cursor = 'grabbing';
     });
@@ -333,7 +444,8 @@
   }
 
   function centerOn(id) {
-    const n = Model.find(state.map, id);
+    const found = Model.find(state.map, id);
+    const n = found && found.node; // 注意：Model.find 返回 {node, parent} 包装对象
     if (!n) return;
     const rect = state.svg.getBoundingClientRect();
     state.view.x = rect.width / 2 - (n._x + n._w / 2) * state.view.k;
@@ -351,6 +463,8 @@
       const dashes = g.querySelectorAll('rect[stroke-dasharray]');
       dashes.forEach((d) => d.remove());
     });
+    // 去除缩放手柄（不导出）
+    clone.querySelectorAll('.resize-handle').forEach((h) => h.remove());
     const b = computeBounds();
     clone.setAttribute('xmlns', SVGNS);
     clone.setAttribute('viewBox', `${b.minX} ${b.minY} ${b.width} ${b.height}`);

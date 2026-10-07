@@ -42,6 +42,7 @@
       onEdit: (id) => startInlineEdit(id),
       onContext: (id, ev) => showContextMenu(id, ev),
       onView: (k) => updateZoom(k),
+      onResize: (id) => { if (id === selectedId) updateInspector(id); setStatus('已调整节点尺寸'); },
     });
 
     Layout.layout(map);
@@ -139,6 +140,8 @@
       el.addEventListener('input', () => applyInspector());
       el.addEventListener('change', () => applyInspector());
     });
+    $('insp-width').addEventListener('input', applySize);
+    $('insp-height').addEventListener('input', applySize);
     $('btn-insp-image').onclick = async () => {
       if (!selectedId) return;
       const data = await window.mm.pickImage();
@@ -154,6 +157,18 @@
     $('btn-insp-delete').onclick = deleteSelected;
   }
 
+  function applySize() {
+    if (!selectedId) return;
+    const r = Model.find(map, selectedId);
+    if (!r) return;
+    const w = parseInt($('insp-width').value, 10);
+    const h = parseInt($('insp-height').value, 10);
+    r.node.width = (w > 0) ? w : 0;
+    r.node.height = (h > 0) ? h : 0;
+    Layout.layout(map);
+    Render.draw();
+  }
+
   function updateInspector(id) {
     const empty = $('insp-empty'); const body = $('insp-body');
     if (!id) { empty.classList.remove('hidden'); body.classList.add('hidden'); return; }
@@ -167,6 +182,8 @@
     $('insp-priority').value = n.priority || '';
     $('insp-assignee').value = n.assignee || '';
     $('insp-due').value = n.due || '';
+    $('insp-width').value = (n.width > 0) ? n.width : '';
+    $('insp-height').value = (n.height > 0) ? n.height : '';
     $('insp-link').value = n.link || '';
     $('insp-note').value = n.note || '';
   }

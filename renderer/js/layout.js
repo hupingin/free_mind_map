@@ -70,6 +70,22 @@
 
   function measureNode(node) {
     const text = node.text || '节点';
+    // 用户手动设定了宽度：按该宽度换行，行高自动；高度不足时再撑开
+    if (node.width && node.width > 0) {
+      const lines = wrapText(text, node.width - 2 * PAD_X);
+      const textW = Math.max(1, ...lines.map((l) => [...l].reduce((s, c) => s + charWidth(c), 0)));
+      let w = node.width;
+      let h = lines.length * LINE_HEIGHT + 2 * PAD_Y;
+      if (node.image) {
+        w = Math.max(w, Math.min(IMG_MAX_W, textW) + 2 * PAD_X);
+        h += IMG_H + 6;
+      }
+      if (node.height && node.height > 0) h = Math.max(h, node.height);
+      node._lines = lines;
+      node._textW = textW;
+      node._w = w; node._h = h;
+      return { w, h, lines };
+    }
     const lines = wrapText(text, MAX_TEXT_WIDTH);
     const textW = Math.max(1, ...lines.map((l) => [...l].reduce((s, c) => s + charWidth(c), 0)));
     let w = clamp(textW + 2 * PAD_X, MIN_W, MAX_W);

@@ -59,6 +59,13 @@ html, body {
   border-top: 1px solid var(--ui-border); font-size: 12px; color: var(--ui-muted);
 }
 #status-file { margin-left: auto; }
+
+/* ---------------- 节点缩放手柄 ---------------- */
+.resize-handle {
+  cursor: nwse-resize;
+  display: none;
+}
+.node.selected .resize-handle { display: block; }
 #status-zoom { color: var(--ui-accent); min-width: 52px; }
 
 /* ---------------- 右键菜单 ---------------- */

@@ -27,6 +27,8 @@
       image: '', // 内存中为 data URI；磁盘上为 .swdt 下的文件名
       imageName: '',
       collapsed: false,
+      width: 0, // 用户手动设置的宽度（0 = 自动）
+      height: 0, // 用户手动设置的高度（0 = 自动）
       children: [],
     };
   }

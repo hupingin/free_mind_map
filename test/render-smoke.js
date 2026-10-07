@@ -147,8 +147,19 @@ safe('click-to-edit', () => {
   clickEditTriggered = onEditCalls.length === before + 1;
 });
 
+/* 验证手动缩放：设置节点 width/height 后，布局尊重该尺寸（_w 等于设定值，_h 至少设定值） */
+let userWidthOk = false;
+safe('user-width', () => {
+  const someNode = m.root.children && m.root.children[0];
+  if (!someNode) return;
+  someNode.width = 300;
+  someNode.height = 80;
+  window.Layout.layout(m);
+  userWidthOk = (someNode._w === 300) && (someNode._h >= 80);
+});
+
 const allLayoutsOk = Object.values(layoutResults).every((r) => r.ok);
-const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered;
+const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk;
 
 const summary = {
   ok,
@@ -158,6 +169,7 @@ const summary = {
   serializeRoundtrip: serializeOk,
   selectPersist,
   clickEditTriggered,
+  userWidthOk,
 };
 console.log(JSON.stringify(summary, null, 2));
 process.exit(ok ? 0 : 1);
