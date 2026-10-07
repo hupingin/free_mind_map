@@ -1,0 +1,43 @@
+{
+  "name": "free_mind_map",
+  "version": "0.1.0",
+  "description": "Free Mind Map - 一个开源、免费、跨平台的思维导图软件（基于 Electron）",
+  "main": "main.js",
+  "author": "hupingin",
+  "license": "MIT",
+  "homepage": "https://github.com/hupingin/free_mind_map",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hupingin/free_mind_map.git"
+  },
+  "keywords": [
+    "mindmap",
+    "mind-map",
+    "思维导图",
+    "electron",
+    "outline",
+    "free"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "electron-builder",
+    "lint": "node -e \"require('fs').readdirSync('.').forEach(f=>{})\""
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.freemindmap.app",
+    "productName": "Free Mind Map",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

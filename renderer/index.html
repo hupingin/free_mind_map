@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Mind Map</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="toolbar">
+    <div class="tb-group">
+      <button id="btn-new" title="新建 (Ctrl+N)">📄 新建</button>
+      <button id="btn-open" title="打开 (Ctrl+O)">📂 打开</button>
+      <button id="btn-save" title="保存 (Ctrl+S)">💾 保存</button>
+      <button id="btn-saveas" title="另存为 (Ctrl+Shift+S)">💾 另存为</button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <label>结构</label>
+      <select id="sel-structure">
+        <option value="mindmap">思维导图</option>
+        <option value="logical">逻辑图</option>
+        <option value="tree">树形图</option>
+        <option value="org">组织结构图</option>
+        <option value="fishbone">鱼骨图</option>
+        <option value="timeline">时间轴</option>
+      </select>
+      <select id="sel-direction" class="hidden">
+        <option value="right">→ 向右</option>
+        <option value="left">← 向左</option>
+      </select>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button id="btn-add-child" title="添加子节点 (Tab)">➕ 子节点</button>
+      <button id="btn-add-sibling" title="添加同级 (Enter)">➕ 同级</button>
+      <button id="btn-collapse" title="展开/折叠">⊟ 折叠</button>
+      <button id="btn-del" title="删除 (Del)">🗑 删除</button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <label>主题</label>
+      <select id="sel-theme"></select>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button id="btn-outline" title="大纲模式 (Ctrl+Shift+O)">📝 大纲</button>
+      <button id="btn-search" title="搜索 (Ctrl+F)">🔍 搜索</button>
+      <button id="btn-present" title="演示 (F5)">🎬 演示</button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
+      <button id="btn-exp-png" title="导出 PNG">PNG</button>
+      <button id="btn-exp-svg" title="导出 SVG">SVG</button>
+      <button id="btn-exp-md" title="导出 Markdown">MD</button>
+      <button id="btn-exp-pdf" title="导出 PDF">PDF</button>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-group">
+      <button id="btn-zoom-out">－</button>
+      <span id="zoom-label">100%</span>
+      <button id="btn-zoom-in">＋</button>
+      <button id="btn-zoom-fit">⤢ 适应</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+
+    <aside id="inspector" class="hidden">
+      <div id="insp-empty" class="hint">选中一个节点以编辑其属性</div>
+      <div id="insp-body" class="hidden">
+        <div class="insp-row">
+          <textarea id="insp-text" rows="2" placeholder="节点文本"></textarea>
+        </div>
+        <div class="insp-row">
+          <label>图标 (emoji)</label>
+          <input id="insp-icon" type="text" placeholder="如 💡" />
+        </div>
+        <div class="insp-row">
+          <label>标签 (逗号分隔)</label>
+          <input id="insp-labels" type="text" placeholder="重要, 待办" />
+        </div>
+        <div class="insp-row two">
+          <div>
+            <label>优先级</label>
+            <select id="insp-priority">
+              <option value="">无</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+          </div>
+          <div>
+            <label>负责人</label>
+            <input id="insp-assignee" type="text" placeholder="姓名" />
+          </div>
+        </div>
+        <div class="insp-row">
+          <label>截止日期</label>
+          <input id="insp-due" type="date" />
+        </div>
+        <div class="insp-row">
+          <label>链接</label>
+          <input id="insp-link" type="text" placeholder="https://..." />
+        </div>
+        <div class="insp-row">
+          <label>备注</label>
+          <textarea id="insp-note" rows="3" placeholder="详细说明..."></textarea>
+        </div>
+        <div class="insp-row">
+          <label>图片</label>
+          <div class="insp-img-btns">
+            <button id="btn-insp-image">选择图片</button>
+            <button id="btn-insp-del-image">移除</button>
+          </div>
+        </div>
+        <div class="insp-row">
+          <button id="btn-insp-delete" class="danger">删除该节点</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="status">
+    <span id="status-text">就绪</span>
+    <span id="status-file"></span>
+  </footer>
+
+  <!-- 右键菜单 -->
+  <div id="ctxmenu" class="hidden"></div>
+
+  <!-- 搜索面板 -->
+  <div id="search-panel" class="panel hidden">
+    <div class="panel-head">
+      <input id="search-input" type="text" placeholder="搜索节点文本 / 备注 / 标签…" />
+      <button id="search-close">✕</button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- 大纲面板 -->
+  <div id="outline-panel" class="panel hidden">
+    <div class="panel-head">
+      <span>大纲模式（缩进表示层级，应用后同步到导图）</span>
+      <button id="outline-close">✕</button>
+    </div>
+    <textarea id="outline-text" spellcheck="false"></textarea>
+    <div class="panel-foot">
+      <button id="outline-apply">应用</button>
+      <button id="outline-md">复制为 Markdown</button>
+    </div>
+  </div>
+
+  <!-- 演示模式 -->
+  <div id="present-overlay" class="hidden">
+    <div id="present-content"></div>
+    <div id="present-nav">
+      <button id="present-prev">‹ 上一张</button>
+      <span id="present-indicator"></span>
+      <button id="present-next">下一张 ›</button>
+      <button id="present-exit">退出 (Esc)</button>
+    </div>
+  </div>
+
+  <script src="js/themes.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
