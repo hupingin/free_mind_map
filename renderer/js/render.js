@@ -126,7 +126,7 @@
     const stroke = isRoot ? t.rootStroke : t.nodeStroke;
     const textColor = isRoot ? t.rootText : t.nodeText;
 
-    const grp = el('g', { 'data-id': n.id, transform: `translate(${n._x},${n._y})`, class: 'node' + (n.id === state.selectedId ? ' selected' : '') });
+    const grp = el('g', { 'data-id': n.id, transform: `translate(${n._x},${n._y})`, class: 'node' });
     if (t.handdrawn && !isRoot) grp.setAttribute('transform', `translate(${n._x},${n._y}) rotate(${hashRot(n.id)} ${n._w / 2} ${n._h / 2})`);
 
     const rect = el('rect', {
@@ -134,13 +134,6 @@
       fill, stroke, 'stroke-width': isRoot ? 2.4 : 1.4,
     });
     grp.appendChild(rect);
-
-    if (n.id === state.selectedId) {
-      grp.appendChild(el('rect', {
-        x: -3, y: -3, width: n._w + 6, height: n._h + 6, rx: (isRoot ? 14 : 9) + 3, ry: (isRoot ? 14 : 9) + 3,
-        fill: 'none', stroke: t.selected, 'stroke-width': 2, 'stroke-dasharray': '5 4',
-      }));
-    }
 
     let textTop = PAD_Y;
     if (n.image) {
@@ -198,8 +191,15 @@
     g.appendChild(grp);
 
     grp.addEventListener('mousedown', (e) => e.stopPropagation());
-    grp.addEventListener('click', (e) => { e.stopPropagation(); select(n.id); });
-    grp.addEventListener('dblclick', (e) => { e.stopPropagation(); state.callbacks.onEdit && state.callbacks.onEdit(n.id); });
+    // 单击即进入内联编辑；双击时第二次点击落在编辑框上，复用同一编辑框、不重复打开
+    grp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const editing = document.getElementById('inline-editor');
+      select(n.id);
+      if (editing && editing.dataset.nodeId === n.id) return;
+      state.callbacks.onEdit && state.callbacks.onEdit(n.id);
+    });
+    grp.addEventListener('dblclick', (e) => { e.stopPropagation(); });
     grp.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); state.callbacks.onContext && state.callbacks.onContext(n.id, e); });
   }
 
@@ -218,6 +218,7 @@
     vg.appendChild(nodesG);
     drawEdges(edgesG);
     Model.traverse(state.map.root, (n) => drawNode(nodesG, n));
+    applySelection();
     applyTransform();
   }
 
@@ -226,11 +227,43 @@
     state.viewport.setAttribute('transform', `translate(${x},${y}) scale(${k})`);
   }
 
+  /* ---------------- 选中高亮（轻量，不重绘整树，保证双击可触发） ---------------- */
+
+  function makeSelRect(n) {
+    return el('rect', {
+      x: -3, y: -3, width: n._w + 6, height: n._h + 6,
+      rx: (n === state.map.root ? 14 : 9) + 3, ry: (n === state.map.root ? 14 : 9) + 3,
+      fill: 'none', stroke: state.theme.selected, 'stroke-width': 2, 'stroke-dasharray': '5 4',
+    });
+  }
+
+  function applySelection() {
+    if (!state.viewport) return;
+    const groups = state.viewport.querySelectorAll('.node');
+    if (!groups || !groups.forEach) return;
+    groups.forEach((g) => {
+      const id = g.getAttribute('data-id');
+      const isSel = id === state.selectedId;
+      g.setAttribute('class', isSel ? 'node selected' : 'node');
+      // 移除旧的虚线框
+      let dash = null;
+      g.childNodes.forEach((c) => {
+        const tname = (c.tagName || c.tag || '').toLowerCase();
+        if (tname === 'rect' && c.getAttribute && c.getAttribute('stroke-dasharray')) dash = c;
+      });
+      if (!isSel && dash) { g.removeChild(dash); return; }
+      if (isSel && !dash) {
+        const n = Model.find(state.map, id);
+        if (n) g.insertBefore(makeSelRect(n), g.childNodes[1] || null);
+      }
+    });
+  }
+
   /* ---------------- 视图操作 ---------------- */
 
   function select(id) {
     state.selectedId = id;
-    draw();
+    applySelection();
     state.callbacks.onSelect && state.callbacks.onSelect(id);
   }
 
@@ -245,6 +278,7 @@
     state.view.x = (rect.width - b.width * k) / 2 - b.minX * k;
     state.view.y = (rect.height - b.height * k) / 2 - b.minY * k;
     applyTransform();
+    state.callbacks.onView && state.callbacks.onView(state.view.k);
   }
 
   function zoomAt(factor, cx, cy) {
@@ -256,6 +290,7 @@
     state.view.x = cx - rect.left - ox * state.view.k;
     state.view.y = cy - rect.top - oy * state.view.k;
     applyTransform();
+    state.callbacks.onView && state.callbacks.onView(state.view.k);
   }
 
   function init(svgEl, callbacks) {
@@ -288,15 +323,13 @@
   }
 
   function clientRectOf(id) {
-    const n = Model.find(state.map, id);
-    if (!n) return null;
-    const rect = state.svg.getBoundingClientRect();
-    return {
-      x: rect.left + state.view.x + n._x * state.view.k,
-      y: rect.top + state.view.y + n._y * state.view.k,
-      w: n._w * state.view.k,
-      h: n._h * state.view.k,
-    };
+    if (!state.viewport) return null;
+    const g = state.viewport.querySelector(`.node[data-id="${id}"]`);
+    if (!g) return null;
+    // 优先用节点本体矩形（第一个 rect），排除选中虚线框（第二个 rect）
+    const rectEl = g.querySelector('rect');
+    const r = (rectEl || g).getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
   }
 
   function centerOn(id) {
@@ -335,6 +368,6 @@
   window.Render = {
     init, draw, select, fit, setMap, setTheme, setStructure, getSelected, getState,
     clientRectOf, getSVGString, zoomAt, centerOn,
-    resetView() { state.view = { x: 40, y: 40, k: 1 }; applyTransform(); },
+    resetView() { state.view = { x: 40, y: 40, k: 1 }; applyTransform(); state.callbacks.onView && state.callbacks.onView(state.view.k); },
   };
 })();

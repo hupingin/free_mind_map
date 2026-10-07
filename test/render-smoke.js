@@ -21,6 +21,7 @@ function makeEl(tag) {
   el.removeAttribute = (k) => { delete el.attrs[k]; };
   el.appendChild = (c) => { c.parentNode = el; el.children.push(c); return c; };
   el.removeChild = (c) => { const i = el.children.indexOf(c); if (i >= 0) el.children.splice(i, 1); return c; };
+  el.insertBefore = (c, ref) => { const i = ref ? el.children.indexOf(ref) : 0; el.children.splice(i < 0 ? 0 : i, 0, c); c.parentNode = el; return c; };
   el.firstChild = el.children.length ? el.children[0] : null;
   Object.defineProperty(el, 'childNodes', { get() { return el.children; } });
   el.addEventListener = (t, fn) => { (el._listeners[t] = el._listeners[t] || []).push(fn); };
@@ -45,7 +46,7 @@ function makeEl(tag) {
 }
 
 global.window = global;
-global.document = { createElementNS: (ns, tag) => makeEl(tag) };
+global.document = { createElementNS: (ns, tag) => makeEl(tag), getElementById: () => null };
 global.window.addEventListener = () => {};
 global.XMLSerializer = function () {};
 global.XMLSerializer.prototype.serializeToString = function (node) {
@@ -67,7 +68,8 @@ require(path.join(__dirname, '..', 'renderer', 'js', 'render.js'));
 const R = { errors: [] };
 function safe(label, fn) { try { return fn(); } catch (e) { R.errors.push(label + ': ' + e.message); return null; } }
 
-safe('init', () => window.Render.init(makeEl('svg'), {}));
+let onEditCalls = [];
+safe('init', () => window.Render.init(makeEl('svg'), { onEdit: (id) => onEditCalls.push(id) }));
 
 const m = safe('createMap', () => window.Model.createMap('中心主题'));
 safe('addChild', () => {
@@ -118,8 +120,35 @@ safe('serialize', () => {
   serializeOk = c1 === c2 && c2 > 0;
 });
 
+/* 验证双击修复前提：选中后节点 <g> 元素身份不变（不被整树重绘重建），且挂上 selected 类 */
+let selectPersist = false;
+safe('select-persist', () => {
+  const vp = window.Render.getState().viewport;
+  const groups = vp.querySelectorAll('.node');
+  if (!groups.length) return;
+  const before = groups[0];
+  const id = before.getAttribute('data-id');
+  window.Render.select(id);
+  const after = vp.querySelectorAll('.node')[0];
+  selectPersist = (before === after) && (after.getAttribute('class').indexOf('selected') >= 0);
+});
+
+/* 验证"单击即编辑"：节点 click 触发 onEdit 回调（app 层据此打开内联编辑框） */
+let clickEditTriggered = false;
+safe('click-to-edit', () => {
+  const vp = window.Render.getState().viewport;
+  const groups = vp.querySelectorAll('.node');
+  if (!groups.length) return;
+  const g = groups[0];
+  const listeners = g._listeners.click || [];
+  if (!listeners.length) return;
+  const before = onEditCalls.length;
+  listeners.forEach((fn) => fn({ stopPropagation() {} }));
+  clickEditTriggered = onEditCalls.length === before + 1;
+});
+
 const allLayoutsOk = Object.values(layoutResults).every((r) => r.ok);
-const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk;
+const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered;
 
 const summary = {
   ok,
@@ -127,6 +156,8 @@ const summary = {
   layouts: layoutResults,
   render: { viewportChildren, svgLen, svgValid },
   serializeRoundtrip: serializeOk,
+  selectPersist,
+  clickEditTriggered,
 };
 console.log(JSON.stringify(summary, null, 2));
 process.exit(ok ? 0 : 1);

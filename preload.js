@@ -30,4 +30,7 @@ contextBridge.exposeInMainWorld('mm', {
   onAction: (callback) => {
     ipcRenderer.on('action', (event, action) => callback(action));
   },
+
+  /* 把当前结构/方向/主题/主题列表同步给系统菜单（用于勾选状态） */
+  syncMenu: (state) => ipcRenderer.send('menu:sync', state),
 });

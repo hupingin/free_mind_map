@@ -7,63 +7,6 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header id="toolbar">
-    <div class="tb-group">
-      <button id="btn-new" title="新建 (Ctrl+N)">📄 新建</button>
-      <button id="btn-open" title="打开 (Ctrl+O)">📂 打开</button>
-      <button id="btn-save" title="保存 (Ctrl+S)">💾 保存</button>
-      <button id="btn-saveas" title="另存为 (Ctrl+Shift+S)">💾 另存为</button>
-    </div>
-    <div class="tb-sep"></div>
-    <div class="tb-group">
-      <label>结构</label>
-      <select id="sel-structure">
-        <option value="mindmap">思维导图</option>
-        <option value="logical">逻辑图</option>
-        <option value="tree">树形图</option>
-        <option value="org">组织结构图</option>
-        <option value="fishbone">鱼骨图</option>
-        <option value="timeline">时间轴</option>
-      </select>
-      <select id="sel-direction" class="hidden">
-        <option value="right">→ 向右</option>
-        <option value="left">← 向左</option>
-      </select>
-    </div>
-    <div class="tb-sep"></div>
-    <div class="tb-group">
-      <button id="btn-add-child" title="添加子节点 (Tab)">➕ 子节点</button>
-      <button id="btn-add-sibling" title="添加同级 (Enter)">➕ 同级</button>
-      <button id="btn-collapse" title="展开/折叠">⊟ 折叠</button>
-      <button id="btn-del" title="删除 (Del)">🗑 删除</button>
-    </div>
-    <div class="tb-sep"></div>
-    <div class="tb-group">
-      <label>主题</label>
-      <select id="sel-theme"></select>
-    </div>
-    <div class="tb-sep"></div>
-    <div class="tb-group">
-      <button id="btn-outline" title="大纲模式 (Ctrl+Shift+O)">📝 大纲</button>
-      <button id="btn-search" title="搜索 (Ctrl+F)">🔍 搜索</button>
-      <button id="btn-present" title="演示 (F5)">🎬 演示</button>
-    </div>
-    <div class="tb-sep"></div>
-    <div class="tb-group">
-      <button id="btn-exp-png" title="导出 PNG">PNG</button>
-      <button id="btn-exp-svg" title="导出 SVG">SVG</button>
-      <button id="btn-exp-md" title="导出 Markdown">MD</button>
-      <button id="btn-exp-pdf" title="导出 PDF">PDF</button>
-    </div>
-    <div class="tb-spacer"></div>
-    <div class="tb-group">
-      <button id="btn-zoom-out">－</button>
-      <span id="zoom-label">100%</span>
-      <button id="btn-zoom-in">＋</button>
-      <button id="btn-zoom-fit">⤢ 适应</button>
-    </div>
-  </header>
-
   <main id="stage">
     <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
 
@@ -124,6 +67,7 @@
 
   <footer id="status">
     <span id="status-text">就绪</span>
+    <span id="status-zoom"></span>
     <span id="status-file"></span>
   </footer>
 

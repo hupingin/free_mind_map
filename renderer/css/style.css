@@ -18,30 +18,9 @@ html, body {
   overflow: hidden;
 }
 
-/* ---------------- 工具栏 ---------------- */
-#toolbar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px;
-  background: var(--ui-bg2);
-  border-bottom: 1px solid var(--ui-border);
-  flex-wrap: wrap;
-}
-.tb-group { display: flex; align-items: center; gap: 6px; }
-.tb-group label { color: var(--ui-muted); font-size: 12px; }
-.tb-sep { width: 1px; height: 22px; background: var(--ui-border); margin: 0 4px; }
-.tb-spacer { flex: 1; }
-
-#toolbar button, #toolbar select {
-  background: #2c2f3a; color: var(--ui-text);
-  border: 1px solid var(--ui-border); border-radius: 6px;
-  padding: 6px 10px; font-size: 13px; cursor: pointer;
-}
-#toolbar button:hover { background: #353947; border-color: var(--ui-accent); }
-#toolbar select { padding: 5px 6px; }
-#zoom-label { font-size: 12px; color: var(--ui-muted); min-width: 42px; text-align: center; }
-
 /* ---------------- 主体 ---------------- */
-#stage { position: relative; height: calc(100% - 96px); display: flex; }
+/* 工具栏（HTML 菜单栏）已移除，所有功能并入 Electron 系统顶部菜单 */
+#stage { position: relative; height: calc(100vh - 28px); display: flex; }
 #canvas { flex: 1; width: 100%; height: 100%; background: #f4f6fb; cursor: grab; display: block; }
 #canvas text { user-select: none; }
 
@@ -80,6 +59,7 @@ html, body {
   border-top: 1px solid var(--ui-border); font-size: 12px; color: var(--ui-muted);
 }
 #status-file { margin-left: auto; }
+#status-zoom { color: var(--ui-accent); min-width: 52px; }
 
 /* ---------------- 右键菜单 ---------------- */
 #ctxmenu {
@@ -97,8 +77,8 @@ html, body {
   border: 1px solid var(--ui-border); border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0,0,0,.5);
 }
-#search-panel { top: 64px; right: 320px; width: 340px; }
-#outline-panel { top: 64px; left: 20px; right: 320px; bottom: 60px; display: flex; flex-direction: column; }
+#search-panel { top: 12px; right: 320px; width: 340px; }
+#outline-panel { top: 12px; left: 20px; right: 320px; bottom: 60px; display: flex; flex-direction: column; }
 .panel-head {
   display: flex; align-items: center; gap: 8px; padding: 10px 12px;
   border-bottom: 1px solid var(--ui-border); font-size: 13px; color: var(--ui-muted);

@@ -36,19 +36,12 @@
 
   function init() {
     map = makeSample();
-    // 主题下拉
-    const selTheme = $('sel-theme');
-    Themes.list().forEach((t) => {
-      const o = document.createElement('option');
-      o.value = t.key; o.textContent = t.name;
-      selTheme.appendChild(o);
-    });
-    selTheme.value = map.meta.theme;
 
     Render.init($('canvas'), {
       onSelect: (id) => { selectedId = id; updateInspector(id); },
       onEdit: (id) => startInlineEdit(id),
       onContext: (id, ev) => showContextMenu(id, ev),
+      onView: (k) => updateZoom(k),
     });
 
     Layout.layout(map);
@@ -57,15 +50,28 @@
     Render.setStructure(map.meta.structure);
     Render.draw();
     Render.fit();
+    updateZoom();
     $('inspector').classList.remove('hidden');
 
-    wireToolbar();
     wireInspector();
     wireKeyboard();
     wirePanels();
     if (window.mm && window.mm.onAction) window.mm.onAction(handleMenuAction);
+    syncMenu(); // 把初始结构与主题同步给系统菜单（用于勾选）
 
     setStatus('就绪 · 示例导图已加载');
+  }
+
+  /* 把当前状态同步给系统菜单（结构/方向/主题/主题列表） */
+  function syncMenu() {
+    if (window.mm && window.mm.syncMenu) {
+      window.mm.syncMenu({
+        structure: map.meta.structure,
+        direction: map.meta.direction,
+        theme: map.meta.theme,
+        themes: Themes.list(),
+      });
+    }
   }
 
   function renderMap() {
@@ -80,39 +86,13 @@
   function setStatus(t) { $('status-text').textContent = t; }
   function setFileStatus() { $('status-file').textContent = currentFilePath ? '📁 ' + currentFilePath : '（未保存）'; }
 
-  /* ----------------------- 工具栏 ----------------------- */
+  /* ----------------------- 缩放指示（状态栏） ----------------------- */
 
-  function wireToolbar() {
-    $('btn-new').onclick = newMap;
-    $('btn-open').onclick = openMap;
-    $('btn-save').onclick = () => save(false);
-    $('btn-saveas').onclick = () => save(true);
-
-    $('sel-structure').onchange = (e) => {
-      map.meta.structure = e.target.value;
-      $('sel-direction').classList.toggle('hidden', e.target.value !== 'logical');
-      renderMap();
-    };
-    $('sel-direction').onchange = (e) => { map.meta.direction = e.target.value; renderMap(); };
-    $('sel-theme').onchange = (e) => { map.meta.theme = e.target.value; renderMap(); };
-
-    $('btn-add-child').onclick = () => addNode('child');
-    $('btn-add-sibling').onclick = () => addNode('sibling');
-    $('btn-del').onclick = deleteSelected;
-    $('btn-collapse').onclick = toggleCollapse;
-
-    $('btn-outline').onclick = openOutline;
-    $('btn-search').onclick = openSearch;
-    $('btn-present').onclick = openPresent;
-
-    $('btn-exp-png').onclick = exportPNG;
-    $('btn-exp-svg').onclick = exportSVG;
-    $('btn-exp-md').onclick = exportMarkdown;
-    $('btn-exp-pdf').onclick = exportPDF;
-
-    $('btn-zoom-in').onclick = () => Render.zoomAt(1.15, centerX(), centerY());
-    $('btn-zoom-out').onclick = () => Render.zoomAt(1 / 1.15, centerX(), centerY());
-    $('btn-zoom-fit').onclick = () => Render.fit();
+  function updateZoom(k) {
+    const z = $('status-zoom');
+    if (!z) return;
+    const ratio = (k != null ? k : (Render.getState().view.k || 1));
+    z.textContent = '缩放 ' + Math.round(ratio * 100) + '%';
   }
 
   function centerX() { const r = $('canvas').getBoundingClientRect(); return r.left + r.width / 2; }
@@ -210,25 +190,31 @@
   /* ----------------------- 内联编辑 ----------------------- */
 
   function startInlineEdit(id) {
-    const r = Model.find(map, id); if (!r) return;
+    const r0 = Model.find(map, id); if (!r0) return;
+    const existing = document.getElementById('inline-editor');
+    if (existing && existing.dataset.nodeId === id) return; // 已在编辑同一节点，避免重复打开/光标抖动
     const rect = Render.clientRectOf(id);
     if (!rect) return;
     const ta = document.createElement('textarea');
     ta.id = 'inline-editor';
-    ta.value = r.node.text || '';
+    ta.dataset.nodeId = id;
+    ta.value = r0.node.text || '';
     ta.style.left = rect.x + 'px';
     ta.style.top = rect.y + 'px';
     ta.style.width = Math.max(rect.w, 80) + 'px';
     ta.style.height = Math.max(rect.h, 36) + 'px';
     document.body.appendChild(ta);
-    ta.focus(); ta.select();
+    setTimeout(() => { ta.focus(); ta.select(); }, 0); // 挂载后再聚焦，避免被同步事件抢走焦点
 
     let done = false;
     const commit = (keep) => {
       if (done) return; done = true;
-      if (keep) { r.node.text = ta.value.trim() || '节点'; renderMap(); Render.select(id); }
+      const r = Model.find(map, id);
+      if (keep && r) { r.node.text = ta.value.trim() || '节点'; renderMap(); Render.select(id); }
       ta.remove();
     };
+    // 输入即同步到模型（不重绘，避免节点重建打断编辑）
+    ta.addEventListener('input', () => { const r = Model.find(map, id); if (r) r.node.text = ta.value; });
     ta.addEventListener('blur', () => commit(true));
     ta.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(true); }
@@ -274,11 +260,7 @@
 
   function wireKeyboard() {
     window.addEventListener('keydown', (e) => {
-      // 全局快捷键（即使处于输入态也响应）
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(false); return; }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openSearch(); return; }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); newMap(); return; }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); openMap(); return; }
+      // 注：Ctrl+N/O/S/F、Ctrl+Shift+O、F5、Ctrl+±=0/9 等全局快捷键由系统菜单接管，避免重复触发
       if (e.key === 'Escape') { closeAllPanels(); return; }
       if (isTyping()) return;
       if (e.key === 'Tab') { e.preventDefault(); addNode('child'); }
@@ -453,10 +435,8 @@
     map = makeSample();
     currentFilePath = null;
     selectedId = null;
-    $('sel-theme').value = map.meta.theme;
-    $('sel-structure').value = map.meta.structure;
-    $('sel-direction').classList.add('hidden');
     renderMap(); Render.fit();
+    syncMenu();
     setFileStatus(); setStatus('已新建');
   }
 
@@ -467,11 +447,8 @@
     map = Model.deserialize(r.json);
     currentFilePath = r.filePath;
     selectedId = null;
-    $('sel-theme').value = map.meta.theme;
-    $('sel-structure').value = map.meta.structure;
-    $('sel-direction').classList.toggle('hidden', map.meta.structure !== 'logical');
-    $('sel-direction').value = map.meta.direction;
     renderMap(); Render.fit();
+    syncMenu();
     setFileStatus(); setStatus('已打开');
   }
 
@@ -493,14 +470,23 @@
       'new': newMap, 'open': openMap, 'save': () => save(false), 'saveAs': () => save(true),
       'export-png': exportPNG, 'export-svg': exportSVG, 'export-md': exportMarkdown, 'export-pdf': exportPDF,
       'outline': openOutline, 'search': openSearch, 'present': openPresent,
-      'zoom-in': () => Render.zoomAt(1.15, centerX(), centerY()),
-      'zoom-out': () => Render.zoomAt(1 / 1.15, centerX(), centerY()),
-      'zoom-reset': () => Render.resetView(),
+      'add-child': () => addNode('child'), 'add-sibling': () => addNode('sibling'),
+      'collapse': toggleCollapse, 'delete': deleteSelected,
+      'zoom-in': () => { Render.zoomAt(1.15, centerX(), centerY()); updateZoom(); },
+      'zoom-out': () => { Render.zoomAt(1 / 1.15, centerX(), centerY()); updateZoom(); },
+      'zoom-reset': () => { Render.resetView(); updateZoom(); },
+      'zoom-fit': () => { Render.fit(); updateZoom(); },
     };
     if (map2[action]) return map2[action]();
-    if (action.startsWith('theme-')) {
-      const key = action.slice(6);
-      map.meta.theme = key; $('sel-theme').value = key; renderMap();
+    if (action.startsWith('structure:')) {
+      map.meta.structure = action.slice(10);
+      renderMap(); syncMenu();
+    } else if (action.startsWith('direction:')) {
+      map.meta.direction = action.slice(10);
+      renderMap(); syncMenu();
+    } else if (action.startsWith('theme:')) {
+      map.meta.theme = action.slice(6);
+      renderMap(); syncMenu();
     }
   }
 

@@ -44,8 +44,41 @@ function createWindow() {
 
 /* ----------------------------- 菜单 ----------------------------- */
 
+// 当前勾选状态：渲染进程通过 menu:sync 同步；菜单点击时也即时更新
+const menuState = {
+  structure: 'mindmap',
+  direction: 'right',
+  theme: 'classic',
+  themes: [],
+};
+
 function sendAction(action) {
   if (mainWindow) mainWindow.webContents.send('action', action);
+}
+
+function setStructure(v) { menuState.structure = v; rebuildMenu(); sendAction('structure:' + v); }
+function setDirection(v) { menuState.direction = v; rebuildMenu(); sendAction('direction:' + v); }
+function setTheme(v) { menuState.theme = v; rebuildMenu(); sendAction('theme:' + v); }
+
+const STRUCTURES = [
+  { value: 'mindmap', label: '思维导图' },
+  { value: 'logical', label: '逻辑图' },
+  { value: 'tree', label: '树形图' },
+  { value: 'org', label: '组织结构图' },
+  { value: 'fishbone', label: '鱼骨图' },
+  { value: 'timeline', label: '时间轴' },
+];
+
+function themeSubmenu() {
+  if (menuState.themes && menuState.themes.length) {
+    return menuState.themes.map((t) => ({
+      label: t.name,
+      type: 'radio',
+      checked: menuState.theme === t.key,
+      click: () => setTheme(t.key),
+    }));
+  }
+  return [{ label: '（加载中…）', enabled: false }];
 }
 
 function buildMenu() {
@@ -85,11 +118,39 @@ function buildMenu() {
       ],
     },
     {
+      label: '节点',
+      submenu: [
+        // 注意：Tab / Enter / Del 不挂加速器，避免编辑节点文本时与输入框冲突；
+        // 对应键盘快捷键由渲染层在非输入态下处理（见 app.js wireKeyboard）
+        { label: '添加子节点 (Tab)', click: () => sendAction('add-child') },
+        { label: '添加同级 (Enter)', click: () => sendAction('add-sibling') },
+        { label: '折叠 / 展开', click: () => sendAction('collapse') },
+        { type: 'separator' },
+        { label: '删除 (Del)', click: () => sendAction('delete') },
+      ],
+    },
+    {
       label: '视图',
       submenu: [
+        {
+          label: '结构',
+          submenu: STRUCTURES.map((s) => ({
+            label: s.label, type: 'radio', checked: menuState.structure === s.value,
+            click: () => setStructure(s.value),
+          })),
+        },
+        {
+          label: '方向',
+          submenu: [
+            { label: '→ 向右', type: 'radio', checked: menuState.direction === 'right', click: () => setDirection('right') },
+            { label: '← 向左', type: 'radio', checked: menuState.direction === 'left', click: () => setDirection('left') },
+          ],
+        },
+        { type: 'separator' },
         { label: '放大', accelerator: 'CmdOrCtrl+=', click: () => sendAction('zoom-in') },
         { label: '缩小', accelerator: 'CmdOrCtrl+-', click: () => sendAction('zoom-out') },
         { label: '重置缩放', accelerator: 'CmdOrCtrl+0', click: () => sendAction('zoom-reset') },
+        { label: '适应窗口', accelerator: 'CmdOrCtrl+9', click: () => sendAction('zoom-fit') },
         { type: 'separator' },
         { label: '大纲模式', accelerator: 'CmdOrCtrl+Shift+O', click: () => sendAction('outline') },
         { label: '搜索', accelerator: 'CmdOrCtrl+F', click: () => sendAction('search') },
@@ -101,14 +162,7 @@ function buildMenu() {
     },
     {
       label: '主题',
-      submenu: [
-        { label: '经典蓝', click: () => sendAction('theme-classic') },
-        { label: '暗夜', click: () => sendAction('theme-dark') },
-        { label: '清新绿', click: () => sendAction('theme-mint') },
-        { label: '日落橙', click: () => sendAction('theme-sunset') },
-        { label: '彩虹分支', click: () => sendAction('theme-rainbow') },
-        { label: '手绘风格', click: () => sendAction('theme-handdrawn') },
-      ],
+      submenu: themeSubmenu(),
     },
     {
       label: '帮助',
@@ -135,6 +189,8 @@ function buildMenu() {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
+
+function rebuildMenu() { buildMenu(); }
 
 /* ----------------------- 文件 / 图片 工具 ----------------------- */
 
@@ -310,6 +366,15 @@ ipcMain.handle('export:writeBinary', async (event, filePath, dataURL) => {
     fs.writeFileSync(filePath, Buffer.from(body, 'base64'));
     return { ok: true };
   } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.on('menu:sync', (event, s) => {
+  if (!s || typeof s !== 'object') return;
+  if (s.structure) menuState.structure = s.structure;
+  if (s.direction) menuState.direction = s.direction;
+  if (s.theme) menuState.theme = s.theme;
+  if (Array.isArray(s.themes)) menuState.themes = s.themes;
+  rebuildMenu();
 });
 
 app.whenReady().then(createWindow);
