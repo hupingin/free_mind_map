@@ -22,7 +22,7 @@ function makeEl(tag) {
   el.appendChild = (c) => { c.parentNode = el; el.children.push(c); return c; };
   el.removeChild = (c) => { const i = el.children.indexOf(c); if (i >= 0) el.children.splice(i, 1); return c; };
   el.insertBefore = (c, ref) => { const i = ref ? el.children.indexOf(ref) : 0; el.children.splice(i < 0 ? 0 : i, 0, c); c.parentNode = el; return c; };
-  el.firstChild = el.children.length ? el.children[0] : null;
+  Object.defineProperty(el, 'firstChild', { get() { return el.children.length ? el.children[0] : null; } });
   Object.defineProperty(el, 'childNodes', { get() { return el.children; } });
   el.addEventListener = (t, fn) => { (el._listeners[t] = el._listeners[t] || []).push(fn); };
   el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 800 });
@@ -158,8 +158,34 @@ safe('user-width', () => {
   userWidthOk = (someNode._w === 300) && (someNode._h >= 80);
 });
 
+/* 验证折叠/展开切换按钮：有子节点的节点绘制后应带 .collapse-toggle；折叠后子树不再绘制 */
+let collapseTogglePresent = false;
+safe('collapse-toggle-present', () => {
+  window.Render.draw();
+  const vp = window.Render.getState().viewport;
+  const groups = vp.querySelectorAll('.node');
+  let found = false;
+  groups.forEach((g) => { if (g.querySelectorAll('.collapse-toggle').length) found = true; });
+  collapseTogglePresent = found && groups.length > 0;
+});
+
+let collapseHidesChildren = false;
+safe('collapse-hides', () => {
+  const a = m.root.children && m.root.children[0];
+  if (!a || !a.children || !a.children.length) return;
+  a.collapsed = true;
+  window.Layout.layout(m);
+  window.Render.draw();
+  const ids = [];
+  window.Render.getState().viewport.querySelectorAll('.node').forEach((g) => ids.push(g.getAttribute('data-id')));
+  collapseHidesChildren = !ids.includes(a.children[0].id) && ids.includes(a.id);
+  a.collapsed = false;
+  window.Layout.layout(m);
+  window.Render.draw();
+});
+
 const allLayoutsOk = Object.values(layoutResults).every((r) => r.ok);
-const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk;
+const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk && collapseTogglePresent && collapseHidesChildren;
 
 const summary = {
   ok,
@@ -170,6 +196,8 @@ const summary = {
   selectPersist,
   clickEditTriggered,
   userWidthOk,
+  collapseTogglePresent,
+  collapseHidesChildren,
 };
 console.log(JSON.stringify(summary, null, 2));
 process.exit(ok ? 0 : 1);

@@ -43,6 +43,7 @@
       onContext: (id, ev) => showContextMenu(id, ev),
       onView: (k) => updateZoom(k),
       onResize: (id) => { if (id === selectedId) updateInspector(id); setStatus('已调整节点尺寸'); },
+      onToggleCollapse: (id) => toggleCollapseById(id),
     });
 
     Layout.layout(map);
@@ -122,14 +123,16 @@
     $('insp-empty').classList.remove('hidden');
   }
 
-  function toggleCollapse() {
-    if (!selectedId) return;
-    const r = Model.find(map, selectedId);
+  function toggleCollapseById(id) {
+    if (!id) return;
+    const r = Model.find(map, id);
     if (!r) return;
     r.node.collapsed = !r.node.collapsed;
     renderMap();
-    Render.select(selectedId);
+    Render.select(id);
   }
+
+  function toggleCollapse() { toggleCollapseById(selectedId); }
 
   /* ----------------------- 检查器 ----------------------- */
 

@@ -66,6 +66,11 @@ html, body {
   display: none;
 }
 .node.selected .resize-handle { display: block; }
+
+/* ---------------- 折叠 / 展开 切换按钮 ---------------- */
+.collapse-toggle { cursor: pointer; }
+.collapse-toggle-circle { transition: fill .12s ease; }
+.collapse-toggle:hover .collapse-toggle-circle { fill: #e8edfb; }
 #status-zoom { color: var(--ui-accent); min-width: 52px; }
 
 /* ---------------- 右键菜单 ---------------- */

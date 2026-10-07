@@ -7,7 +7,7 @@
   const MIN_W = 46;
   const MIN_H = 28;
   const HANDLE = 14;
-  const DBG = true; // 调试开关：缩放拖拽相关日志
+  const DBG = false; // 调试开关：缩放拖拽相关日志（联调完成后关闭）
   const log = (...a) => { if (DBG && typeof console !== 'undefined') console.log('[FMM]', ...a); };
 
   const state = {
@@ -36,12 +36,14 @@
 
   function computeBounds() {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    Model.traverse(state.map.root, (n) => {
+    // 折叠节点的子树不计入边界（其坐标已被 layout 清零）
+    (function walk(n) {
       minX = Math.min(minX, n._x);
       minY = Math.min(minY, n._y);
       maxX = Math.max(maxX, n._x + n._w);
       maxY = Math.max(maxY, n._y + n._h);
-    });
+      if (!n.collapsed) (n.children || []).forEach(walk);
+    })(state.map.root);
     const pad = 60;
     return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad,
              width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
@@ -124,6 +126,31 @@
 
   /* ---------------- 节点 ---------------- */
 
+  // 折叠/展开 切换按钮：放在节点向子树延伸的那一侧，点击切换 collapsed
+  function makeCollapseToggle(n) {
+    const t = state.theme;
+    const R = 9;
+    const o = n._orient;
+    let cx, cy;
+    if (o === 'right') { cx = n._w + 8; cy = n._h / 2; }
+    else if (o === 'left') { cx = -8; cy = n._h / 2; }
+    else if (o === 'bottom') { cx = n._w / 2; cy = n._h + 8; }
+    else if (o === 'top') { cx = n._w / 2; cy = -8; }
+    else { cx = n._w + 8; cy = n._h / 2; } // 根节点（无方向）默认右侧
+    const tg = el('g', { class: 'collapse-toggle' });
+    tg.appendChild(el('circle', { cx, cy, r: R, class: 'collapse-toggle-circle', fill: t.bg, stroke: t.line, 'stroke-width': 1.6 }));
+    const sign = el('text', { x: cx, y: cy + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 15, 'font-family': t.font, fill: t.line, 'font-weight': 'bold' });
+    sign.textContent = n.collapsed ? '+' : '−'; // 折叠态显示 +（可展开），展开态显示 −（可折叠）
+    tg.appendChild(sign);
+    tg.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+    tg.addEventListener('click', (e) => {
+      e.stopPropagation();
+      log('collapse-toggle click', n.id, '->', n.collapsed ? 'expand' : 'collapse');
+      state.callbacks.onToggleCollapse && state.callbacks.onToggleCollapse(n.id);
+    });
+    return tg;
+  }
+
   function drawNode(g, n) {
     const t = state.theme;
     const isRoot = n === state.map.root;
@@ -192,6 +219,9 @@
         px += w + 6;
       });
     }
+
+    // 有子节点的，在延伸侧加 折叠/展开 切换按钮
+    if (n.children && n.children.length) grp.appendChild(makeCollapseToggle(n));
 
     g.appendChild(grp);
 
@@ -295,7 +325,12 @@
     vg.appendChild(edgesG);
     vg.appendChild(nodesG);
     drawEdges(edgesG);
-    Model.traverse(state.map.root, (n) => drawNode(nodesG, n));
+    // 设置深度并绘制节点；折叠节点的子树不绘制（其坐标已被 layout 清零，连线在 drawEdges 也已跳过）
+    (function drawNodes(n, d) {
+      n._depth = d;
+      drawNode(nodesG, n);
+      if (!n.collapsed) (n.children || []).forEach((c) => drawNodes(c, d + 1));
+    })(state.map.root, 0);
     applySelection();
     applyTransform();
   }
@@ -453,6 +488,12 @@
     applyTransform();
   }
 
+  function rmNode(n) {
+    // 兼容真实浏览器（Element.remove）与测试垫片（仅 removeChild）
+    if (n && typeof n.remove === 'function') n.remove();
+    else if (n && n.parentNode) n.parentNode.removeChild(n);
+  }
+
   function getSVGString() {
     // 克隆当前 svg，去掉选择与视口变换，套用 bounds 作为 viewBox
     const clone = state.svg.cloneNode(true);
@@ -461,10 +502,12 @@
     // 去除选中虚线
     clone.querySelectorAll('.selected').forEach((g) => {
       const dashes = g.querySelectorAll('rect[stroke-dasharray]');
-      dashes.forEach((d) => d.remove());
+      dashes.forEach((d) => rmNode(d));
     });
     // 去除缩放手柄（不导出）
-    clone.querySelectorAll('.resize-handle').forEach((h) => h.remove());
+    clone.querySelectorAll('.resize-handle').forEach((h) => rmNode(h));
+    // 去除折叠/展开切换按钮（不导出）
+    clone.querySelectorAll('.collapse-toggle').forEach((h) => rmNode(h));
     const b = computeBounds();
     clone.setAttribute('xmlns', SVGNS);
     clone.setAttribute('viewBox', `${b.minX} ${b.minY} ${b.width} ${b.height}`);
