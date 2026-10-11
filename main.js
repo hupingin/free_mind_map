@@ -351,11 +351,13 @@ ipcMain.handle('export:pdf', async (event, filePath, svgStr) => {
     const win = new BrowserWindow({ show: false, webPreferences: { sandbox: false } });
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff;}svg{max-width:100%;}</style></head><body>${svgStr}</body></html>`;
     await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    await new Promise((r) => setTimeout(r, 200)); // 等一帧渲染，避免空白
     const buf = await win.webContents.printToPDF({
       printBackground: true,
       landscape: false,
       pageSize: 'A4',
-      margins: { top: 10, bottom: 10, left: 10, right: 10 },
+      // 注意：margins 单位是“英寸”（不是像素）。10 会被当成 10 英寸，超过 A4 页宽(8.27in)直接报错。
+      margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 },
     });
     fs.writeFileSync(filePath, buf);
     win.destroy();
