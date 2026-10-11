@@ -12,65 +12,65 @@
     <button id="btn-inspector-toggle" class="float-btn" title="打开属性面板（Ctrl+I）">‹</button>
 
     <aside id="inspector" class="hidden">
-      <div id="insp-empty" class="hint">选中一个节点以编辑其属性</div>
+      <div id="insp-empty" class="hint" data-i18n="insp.empty">选中一个节点以编辑其属性</div>
       <div id="insp-body" class="hidden">
         <div class="insp-row">
-          <textarea id="insp-text" rows="2" placeholder="节点文本"></textarea>
+          <textarea id="insp-text" rows="2" placeholder="节点文本" data-i18n-ph="insp.text"></textarea>
         </div>
         <div class="insp-row">
-          <label>图标 (emoji)</label>
-          <input id="insp-icon" type="text" placeholder="如 💡" />
+          <label data-i18n="insp.icon">图标 (emoji)</label>
+          <input id="insp-icon" type="text" placeholder="如 💡" data-i18n-ph="insp.icon" />
         </div>
         <div class="insp-row">
-          <label>标签 (逗号分隔)</label>
-          <input id="insp-labels" type="text" placeholder="重要, 待办" />
+          <label data-i18n="insp.labels">标签 (逗号分隔)</label>
+          <input id="insp-labels" type="text" placeholder="重要, 待办" data-i18n-ph="insp.labels" />
         </div>
         <div class="insp-row two">
           <div>
-            <label>优先级</label>
+            <label data-i18n="insp.priority">优先级</label>
             <select id="insp-priority">
-              <option value="">无</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
+              <option value="" data-i18n="insp.priority.none">无</option>
+              <option value="high" data-i18n="insp.priority.high">高</option>
+              <option value="medium" data-i18n="insp.priority.medium">中</option>
+              <option value="low" data-i18n="insp.priority.low">低</option>
             </select>
           </div>
           <div>
-            <label>负责人</label>
-            <input id="insp-assignee" type="text" placeholder="姓名" />
+            <label data-i18n="insp.assignee">负责人</label>
+            <input id="insp-assignee" type="text" placeholder="姓名" data-i18n-ph="insp.assignee" />
           </div>
         </div>
         <div class="insp-row">
-          <label>截止日期</label>
+          <label data-i18n="insp.due">截止日期</label>
           <input id="insp-due" type="date" />
         </div>
         <div class="insp-row two">
           <div>
-            <label>宽度 (0=自动)</label>
-            <input id="insp-width" type="number" min="0" step="1" placeholder="自动" />
+            <label data-i18n="insp.width">宽度 (0=自动)</label>
+            <input id="insp-width" type="number" min="0" step="1" placeholder="自动" data-i18n-ph="insp.width" />
           </div>
           <div>
-            <label>高度 (0=自动)</label>
-            <input id="insp-height" type="number" min="0" step="1" placeholder="自动" />
+            <label data-i18n="insp.height">高度 (0=自动)</label>
+            <input id="insp-height" type="number" min="0" step="1" placeholder="自动" data-i18n-ph="insp.height" />
           </div>
         </div>
         <div class="insp-row">
-          <label>链接</label>
-          <input id="insp-link" type="text" placeholder="https://..." />
+          <label data-i18n="insp.link">链接</label>
+          <input id="insp-link" type="text" placeholder="https://..." data-i18n-ph="insp.link" />
         </div>
         <div class="insp-row">
-          <label>备注</label>
-          <textarea id="insp-note" rows="3" placeholder="详细说明..."></textarea>
+          <label data-i18n="insp.note">备注</label>
+          <textarea id="insp-note" rows="3" placeholder="详细说明..." data-i18n-ph="insp.note"></textarea>
         </div>
         <div class="insp-row">
-          <label>图片</label>
+          <label data-i18n="insp.image">图片</label>
           <div class="insp-img-btns">
-            <button id="btn-insp-image">选择图片</button>
-            <button id="btn-insp-del-image">移除</button>
+            <button id="btn-insp-image" data-i18n="insp.chooseImg">选择图片</button>
+            <button id="btn-insp-del-image" data-i18n="insp.removeImg">移除</button>
           </div>
         </div>
         <div class="insp-row">
-          <button id="btn-insp-delete" class="danger">删除该节点</button>
+          <button id="btn-insp-delete" class="danger" data-i18n="insp.delNode">删除该节点</button>
         </div>
       </div>
     </aside>
@@ -88,12 +88,12 @@
   <!-- 关闭前保存确认 -->
   <div id="close-confirm" class="modal hidden">
     <div class="modal-box">
-      <div class="modal-title">未保存的更改</div>
-      <div class="modal-msg">当前文档有未保存的更改，是否先保存再退出？</div>
+      <div class="modal-title" data-i18n="close.title">未保存的更改</div>
+      <div class="modal-msg" data-i18n="close.msg">当前文档有未保存的更改，是否先保存再退出？</div>
       <div class="modal-foot">
-        <button id="close-save" class="primary">保存</button>
-        <button id="close-discard">不保存</button>
-        <button id="close-cancel">取消</button>
+        <button id="close-save" class="primary" data-i18n="close.save">保存</button>
+        <button id="close-discard" data-i18n="close.discard">不保存</button>
+        <button id="close-cancel" data-i18n="close.cancel">取消</button>
       </div>
     </div>
   </div>
@@ -101,7 +101,7 @@
   <!-- 搜索面板 -->
   <div id="search-panel" class="panel hidden">
     <div class="panel-head">
-      <input id="search-input" type="text" placeholder="搜索节点文本 / 备注 / 标签…" />
+      <input id="search-input" type="text" placeholder="搜索节点文本 / 备注 / 标签…" data-i18n-ph="search.placeholder" />
       <button id="search-close">✕</button>
     </div>
     <div id="search-results"></div>
@@ -110,13 +110,13 @@
   <!-- 大纲面板 -->
   <div id="outline-panel" class="panel hidden">
     <div class="panel-head">
-      <span>大纲模式（缩进表示层级，应用后同步到导图）</span>
+      <span data-i18n="outline.head">大纲模式（缩进表示层级，应用后同步到导图）</span>
       <button id="outline-close">✕</button>
     </div>
     <textarea id="outline-text" spellcheck="false"></textarea>
     <div class="panel-foot">
-      <button id="outline-apply">应用</button>
-      <button id="outline-md">复制为 Markdown</button>
+      <button id="outline-apply" data-i18n="outline.apply">应用</button>
+      <button id="outline-md" data-i18n="outline.copyMd">复制为 Markdown</button>
     </div>
   </div>
 
@@ -124,13 +124,14 @@
   <div id="present-overlay" class="hidden">
     <div id="present-content"></div>
     <div id="present-nav">
-      <button id="present-prev">‹ 上一张</button>
+      <button id="present-prev" data-i18n="present.prev">‹ 上一张</button>
       <span id="present-indicator"></span>
-      <button id="present-next">下一张 ›</button>
-      <button id="present-exit">退出 (Esc)</button>
+      <button id="present-next" data-i18n="present.next">下一张 ›</button>
+      <button id="present-exit" data-i18n="present.exit">退出 (Esc)</button>
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
   <script src="js/themes.js"></script>
   <script src="js/model.js"></script>
   <script src="js/layout.js"></script>

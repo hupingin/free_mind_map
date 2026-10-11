@@ -11,6 +11,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell, nativeImage } = requir
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const I18n = require('./renderer/js/i18n');
 
 let mainWindow = null;
 let currentFile = null; // { filePath, dir }
@@ -82,114 +83,129 @@ const STRUCTURES = [
 function themeSubmenu() {
   if (menuState.themes && menuState.themes.length) {
     return menuState.themes.map((t) => ({
-      label: t.name,
+      label: I18n.t('theme.' + t.key),
       type: 'radio',
       checked: menuState.theme === t.key,
       click: () => setTheme(t.key),
     }));
   }
-  return [{ label: '（加载中…）', enabled: false }];
+  return [{ label: I18n.t('menu.loading'), enabled: false }];
+}
+
+// 语言切换：更新主进程语言、重建菜单，并通知渲染进程同步界面
+function setLangTo(l) {
+  I18n.setLang(l);
+  rebuildMenu();
+  if (mainWindow) mainWindow.webContents.send('lang:apply', l);
 }
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
+  const T = (k) => I18n.t(k);
   const template = [
     {
-      label: '文件',
+      label: T('menu.file'),
       submenu: [
-        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => sendAction('new') },
-        { label: '打开…', accelerator: 'CmdOrCtrl+O', click: () => sendAction('open') },
-        { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => sendAction('save') },
-        { label: '另存为…', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendAction('saveAs') },
+        { label: T('file.new'), accelerator: 'CmdOrCtrl+N', click: () => sendAction('new') },
+        { label: T('file.open'), accelerator: 'CmdOrCtrl+O', click: () => sendAction('open') },
+        { label: T('file.save'), accelerator: 'CmdOrCtrl+S', click: () => sendAction('save') },
+        { label: T('file.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: () => sendAction('saveAs') },
         { type: 'separator' },
         {
-          label: '导出',
+          label: T('file.export'),
           submenu: [
-            { label: 'PNG 图片', click: () => sendAction('export-png') },
-            { label: 'SVG 矢量图', click: () => sendAction('export-svg') },
-            { label: 'Markdown', click: () => sendAction('export-md') },
-            { label: 'PDF 文档', click: () => sendAction('export-pdf') },
+            { label: T('export.png'), click: () => sendAction('export-png') },
+            { label: T('export.svg'), click: () => sendAction('export-svg') },
+            { label: T('export.markdown'), click: () => sendAction('export-md') },
+            { label: T('export.pdf'), click: () => sendAction('export-pdf') },
           ],
         },
         { type: 'separator' },
-        isMac ? { role: 'close' } : { label: '退出', role: 'quit' },
+        isMac ? { role: 'close' } : { label: T('file.quit'), role: 'quit' },
       ],
     },
     {
-      label: '编辑',
+      label: T('menu.edit'),
       submenu: [
-        { role: 'undo', label: '撤销' },
-        { role: 'redo', label: '重做' },
+        { role: 'undo', label: T('edit.undo') },
+        { role: 'redo', label: T('edit.redo') },
         { type: 'separator' },
-        { role: 'cut', label: '剪切' },
-        { role: 'copy', label: '复制' },
-        { role: 'paste', label: '粘贴' },
-        { role: 'selectAll', label: '全选' },
+        { role: 'cut', label: T('edit.cut') },
+        { role: 'copy', label: T('edit.copy') },
+        { role: 'paste', label: T('edit.paste') },
+        { role: 'selectAll', label: T('edit.selectAll') },
       ],
     },
     {
-      label: '节点',
+      label: T('menu.node'),
       submenu: [
         // 注意：Tab / Enter / Del 不挂加速器，避免编辑节点文本时与输入框冲突；
         // 对应键盘快捷键由渲染层在非输入态下处理（见 app.js wireKeyboard）
-        { label: '添加子节点 (Tab)', click: () => sendAction('add-child') },
-        { label: '添加同级 (Enter)', click: () => sendAction('add-sibling') },
-        { label: '折叠 / 展开', click: () => sendAction('collapse') },
+        { label: T('node.addChild'), click: () => sendAction('add-child') },
+        { label: T('node.addSibling'), click: () => sendAction('add-sibling') },
+        { label: T('node.collapse'), click: () => sendAction('collapse') },
         { type: 'separator' },
-        { label: '删除 (Del)', click: () => sendAction('delete') },
+        { label: T('node.delete'), click: () => sendAction('delete') },
       ],
     },
     {
-      label: '视图',
+      label: T('menu.view'),
       submenu: [
         {
-          label: '结构',
+          label: T('view.structure'),
           submenu: STRUCTURES.map((s) => ({
-            label: s.label, type: 'radio', checked: menuState.structure === s.value,
+            label: T('structure.' + s.value), type: 'radio', checked: menuState.structure === s.value,
             click: () => setStructure(s.value),
           })),
         },
         {
-          label: '方向',
+          label: T('view.direction'),
           submenu: [
-            { label: '→ 向右', type: 'radio', checked: true, click: () => setDirection('right') },
+            { label: T('direction.right'), type: 'radio', checked: true, click: () => setDirection('right') },
           ],
         },
         { type: 'separator' },
-        { label: '放大', accelerator: 'CmdOrCtrl+=', click: () => sendAction('zoom-in') },
-        { label: '缩小', accelerator: 'CmdOrCtrl+-', click: () => sendAction('zoom-out') },
-        { label: '重置缩放', accelerator: 'CmdOrCtrl+0', click: () => sendAction('zoom-reset') },
-        { label: '适应窗口', accelerator: 'CmdOrCtrl+9', click: () => sendAction('zoom-fit') },
+        { label: T('view.zoomIn'), accelerator: 'CmdOrCtrl+=', click: () => sendAction('zoom-in') },
+        { label: T('view.zoomOut'), accelerator: 'CmdOrCtrl+-', click: () => sendAction('zoom-out') },
+        { label: T('view.zoomReset'), accelerator: 'CmdOrCtrl+0', click: () => sendAction('zoom-reset') },
+        { label: T('view.zoomFit'), accelerator: 'CmdOrCtrl+9', click: () => sendAction('zoom-fit') },
         { type: 'separator' },
-        { label: '属性面板', type: 'checkbox', checked: menuState.inspector, accelerator: 'CmdOrCtrl+I', click: () => sendAction('toggle-inspector') },
+        { label: T('view.inspector'), type: 'checkbox', checked: menuState.inspector, accelerator: 'CmdOrCtrl+I', click: () => sendAction('toggle-inspector') },
         { type: 'separator' },
-        { label: '大纲模式', accelerator: 'CmdOrCtrl+Shift+O', click: () => sendAction('outline') },
-        { label: '搜索', accelerator: 'CmdOrCtrl+F', click: () => sendAction('search') },
-        { label: '演示模式', accelerator: 'F5', click: () => sendAction('present') },
+        { label: T('view.outline'), accelerator: 'CmdOrCtrl+Shift+O', click: () => sendAction('outline') },
+        { label: T('view.search'), accelerator: 'CmdOrCtrl+F', click: () => sendAction('search') },
+        { label: T('view.present'), accelerator: 'F5', click: () => sendAction('present') },
         { type: 'separator' },
-        { role: 'reload', label: '重新加载' },
-        { role: 'toggleDevTools', label: '开发者工具' },
+        { role: 'reload', label: T('view.reload') },
+        { role: 'toggleDevTools', label: T('view.devtools') },
       ],
     },
     {
-      label: '主题',
+      label: T('menu.theme'),
       submenu: themeSubmenu(),
     },
     {
-      label: '帮助',
+      label: T('menu.language'),
+      submenu: I18n.list().map((l) => ({
+        label: l.name, type: 'radio', checked: I18n.getLang() === l.key,
+        click: () => setLangTo(l.key),
+      })),
+    },
+    {
+      label: T('menu.help'),
       submenu: [
         {
-          label: 'GitHub 仓库',
+          label: T('help.github'),
           click: () => shell.openExternal('https://github.com/hupingin/free_mind_map'),
         },
         {
-          label: '关于',
+          label: T('help.about'),
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: '关于 Free Mind Map',
-              message: 'Free Mind Map v0.1.0',
-              detail: '一个开源、免费、跨平台的思维导图软件。\n基于 Electron 构建，文件以纯文本存储。',
+              title: T('about.title'),
+              message: T('about.message'),
+              detail: T('about.detail'),
             });
           },
         },
@@ -285,8 +301,8 @@ function internalizeImages(root, dir) {
 
 ipcMain.handle('map:open', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
-    title: '打开思维导图',
-    filters: [{ name: 'Free Mind Map', extensions: ['mdm', 'json'] }, { name: '全部', extensions: ['*'] }],
+    title: I18n.t('dlg.openTitle'),
+    filters: [{ name: I18n.t('dlg.filterFmm'), extensions: ['mdm', 'json'] }, { name: I18n.t('dlg.filterAll'), extensions: ['*'] }],
     properties: ['openFile'],
   });
   if (res.canceled || !res.filePaths.length) return null;
@@ -298,7 +314,7 @@ ipcMain.handle('map:open', async () => {
     internalizeImages(obj.root, dir);
     json = JSON.stringify(obj, null, 2);
   } catch (e) {
-    return { error: '文件解析失败：' + e.message };
+    return { error: I18n.t('err.parse') + e.message };
   }
   currentFile = { filePath, dir };
   return { filePath, json };
@@ -322,9 +338,9 @@ ipcMain.handle('map:save', async (event, filePath, json) => {
 
 ipcMain.handle('dialog:savePath', async (event, defaultName) => {
   const res = await dialog.showSaveDialog(mainWindow, {
-    title: '保存思维导图',
-    defaultPath: defaultName || '未命名.mdm',
-    filters: [{ name: 'Free Mind Map', extensions: ['mdm'] }],
+    title: I18n.t('dlg.saveTitle'),
+    defaultPath: defaultName || (I18n.t('doc.untitled') + '.mdm'),
+    filters: [{ name: I18n.t('dlg.filterFmm'), extensions: ['mdm'] }],
   });
   if (res.canceled || !res.filePath) return null;
   let filePath = res.filePath;
@@ -334,8 +350,8 @@ ipcMain.handle('dialog:savePath', async (event, defaultName) => {
 
 ipcMain.handle('image:pick', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
-    title: '选择图片',
-    filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }],
+    title: I18n.t('dlg.imageTitle'),
+    filters: [{ name: I18n.t('dlg.filterImage'), extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }],
     properties: ['openFile'],
   });
   if (res.canceled || !res.filePaths.length) return null;
@@ -420,6 +436,9 @@ ipcMain.on('title:set', (event, name) => {
 
 /* 渲染进程同步文档脏标记（是否有未保存改动） */
 ipcMain.on('doc:dirty', (event, v) => { appDirty = !!v; });
+
+/* 渲染进程启动后把已保存的语言推给主进程，使菜单同步（主进程据此重建菜单） */
+ipcMain.on('lang:set', (event, l) => { I18n.setLang(l); rebuildMenu(); });
 
 /* 渲染进程确认可以关闭（保存/不保存后） */
 ipcMain.on('close:allow', () => { allowClose = true; if (mainWindow) mainWindow.close(); });

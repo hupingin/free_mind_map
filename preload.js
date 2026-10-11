@@ -48,4 +48,12 @@ contextBridge.exposeInMainWorld('mm', {
 
   /* 通知主进程：已决定，可以关闭窗口 */
   allowClose: () => ipcRenderer.send('close:allow'),
+
+  /* 把当前语言推给主进程（启动恢复 / 切换），主进程据此重建菜单 */
+  setLang: (lang) => ipcRenderer.send('lang:set', lang),
+
+  /* 监听主进程下发的语言切换（用户通过菜单切语言时），用于刷新界面文案 */
+  onLangApply: (callback) => {
+    ipcRenderer.on('lang:apply', (event, lang) => callback(lang));
+  },
 });

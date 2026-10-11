@@ -12,7 +12,7 @@
   /* ----------------------- 初始化 ----------------------- */
 
   function makeSample() {
-    const m = Model.createMap('Free Mind Map 演示');
+    const m = Model.createMap(I18n.t('sample.title'));
     m.meta.theme = 'classic';
     m.meta.structure = 'mindmap';
     const r = m.root;
@@ -39,12 +39,17 @@
   function init() {
     map = makeSample();
 
+    // 恢复已保存的语言
+    const savedLang = (typeof localStorage !== 'undefined') ? localStorage.getItem('fmm.lang') : null;
+    if (savedLang) I18n.setLang(savedLang);
+    if (window.mm && window.mm.setLang) window.mm.setLang(I18n.getLang()); // 通知主进程重建菜单
+
     Render.init($('canvas'), {
       onSelect: (id) => { selectedId = id; updateInspector(id); },
       onEdit: (id) => startInlineEdit(id),
       onContext: (id, ev) => showContextMenu(id, ev),
       onView: (k) => updateZoom(k),
-      onResize: (id) => { if (id === selectedId) updateInspector(id); setStatus('已调整节点尺寸'); },
+      onResize: (id) => { if (id === selectedId) updateInspector(id); setStatus('status.resized'); },
       onToggleCollapse: (id) => toggleCollapseById(id),
     });
 
@@ -66,8 +71,18 @@
     setInspector(false); // 属性面板默认关闭
     syncMenu(); // 把初始结构与主题同步给系统菜单（用于勾选）
 
-    setStatus('就绪 · 示例导图已加载');
+    applyI18n(); // 首次应用界面文案（含已恢复的语言）
+    setStatus('status.ready');
     setWindowTitle();
+
+    // 主进程（菜单切语言）下发的语言切换：刷新界面文案并持久化
+    if (window.mm && window.mm.onLangApply) {
+      window.mm.onLangApply((lang) => {
+        I18n.setLang(lang);
+        if (typeof localStorage !== 'undefined') localStorage.setItem('fmm.lang', lang);
+        applyI18n();
+      });
+    }
   }
 
   /* 把当前状态同步给系统菜单（结构/方向/主题/主题列表） */
@@ -93,7 +108,7 @@
     if (btn) {
       btn.classList.toggle('at-panel', inspectorOpen);
       btn.textContent = inspectorOpen ? '›' : '‹';
-      btn.title = inspectorOpen ? '关闭属性面板（Ctrl+I）' : '打开属性面板（Ctrl+I）';
+      btn.title = inspectorOpen ? I18n.t('insp.toggleClose') : I18n.t('insp.toggleOpen');
     }
     if (inspectorOpen && selectedId) updateInspector(selectedId); // 打开时刷新当前选中节点
     syncMenu();
@@ -111,8 +126,16 @@
     applyPresentTheme();   // 演示画面随主题联动
   }
 
-  function setStatus(t) { $('status-text').textContent = t; }
-  function setFileStatus() { $('status-file').textContent = currentFilePath ? '📁 ' + currentFilePath : '（未保存）'; }
+  let lastStatusKey = 'status.ready';
+  function setStatus(key) { lastStatusKey = key; $('status-text').textContent = I18n.t(key); }
+  function setFileStatus() { $('status-file').textContent = currentFilePath ? '📁 ' + currentFilePath : I18n.t('status.unsaved'); }
+
+  /* 把界面上所有 data-i18n / data-i18n-ph 元素刷新为当前语言文案 */
+  function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = I18n.t(el.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.setAttribute('placeholder', I18n.t(el.getAttribute('data-i18n-ph'))); });
+    setStatus('status.ready' === lastStatusKey ? 'status.ready' : lastStatusKey); // 还原当前状态文案
+  }
 
   /* 正在编辑的文档名：已保存取文件名（去扩展名），未保存显示"未命名" */
   function docName() {
@@ -120,7 +143,7 @@
       const base = currentFilePath.split(/[\\/]/).pop();
       return base.replace(/\.[^.]+$/, '');
     }
-    return '未命名';
+    return I18n.t('doc.untitled');
   }
   function setWindowTitle() {
     const name = docName() + (dirty ? ' *' : '');
@@ -147,7 +170,7 @@
     const z = $('status-zoom');
     if (!z) return;
     const ratio = (k != null ? k : (Render.getState().view.k || 1));
-    z.textContent = '缩放 ' + Math.round(ratio * 100) + '%';
+    z.textContent = I18n.t('status.zoom') + ' ' + Math.round(ratio * 100) + '%';
   }
 
   function centerX() { const r = $('canvas').getBoundingClientRect(); return r.left + r.width / 2; }
@@ -159,8 +182,8 @@
     if (!selectedId && kind === 'sibling') { addNode('child'); return; }
     const parentId = kind === 'child' ? (selectedId || map.root.id) : selectedId;
     let node;
-    if (kind === 'child') node = Model.addChild(map, parentId, '新节点');
-    else node = Model.addSibling(map, selectedId, '新节点');
+    if (kind === 'child') node = Model.addChild(map, parentId, I18n.t('node.newNode'));
+    else node = Model.addSibling(map, selectedId, I18n.t('node.newNode'));
     if (!node) return;
     markDirty();
     renderMap();
@@ -169,7 +192,7 @@
   }
 
   function deleteSelected() {
-    if (!selectedId || selectedId === map.root.id) { setStatus('根节点不可删除'); return; }
+    if (!selectedId || selectedId === map.root.id) { setStatus('status.rootNoDelete'); return; }
     Model.deleteNode(map, selectedId);
     selectedId = null;
     markDirty();
@@ -300,7 +323,7 @@
     const commit = (keep) => {
       if (done) return; done = true;
       const r = Model.find(map, id);
-      if (keep && r) { r.node.text = ta.value.trim() || '节点'; markDirty(); renderMap(); Render.select(id); }
+      if (keep && r) { r.node.text = ta.value.trim() || I18n.t('node.fallback'); markDirty(); renderMap(); Render.select(id); }
       ta.remove();
     };
     // 输入即同步到模型（不重绘，避免节点重建打断编辑）
@@ -320,13 +343,13 @@
     const menu = $('ctxmenu');
     menu.innerHTML = '';
     const items = [
-      { label: '➕ 添加子节点', fn: () => addNode('child') },
-      { label: '➕ 添加同级', fn: () => addNode('sibling') },
-      { label: '✏️ 编辑文本', fn: () => startInlineEdit(id) },
-      { label: '🖼 添加图片', fn: () => $('btn-insp-image').click() },
-      { label: (Model.find(map, id).node.collapsed ? '⊞ 展开' : '⊟ 折叠'), fn: toggleCollapse },
+      { label: I18n.t('ctx.addChild'), fn: () => addNode('child') },
+      { label: I18n.t('ctx.addSibling'), fn: () => addNode('sibling') },
+      { label: I18n.t('ctx.edit'), fn: () => startInlineEdit(id) },
+      { label: I18n.t('ctx.addImage'), fn: () => $('btn-insp-image').click() },
+      { label: (Model.find(map, id).node.collapsed ? I18n.t('ctx.expand') : I18n.t('ctx.collapse')), fn: toggleCollapse },
       { sep: true },
-      { label: '🗑 删除', fn: deleteSelected, danger: true },
+      { label: I18n.t('ctx.delete'), fn: deleteSelected, danger: true },
     ];
     items.forEach((it) => {
       if (it.sep) { const s = document.createElement('div'); s.className = 'sep'; menu.appendChild(s); return; }
@@ -412,11 +435,11 @@
       const hay = [n.text, n.note, (n.labels || []).join(' '), n.assignee].join(' ').toLowerCase();
       if (hay.includes(lc)) hits.push({ n, d });
     });
-    if (!hits.length) { box.innerHTML = '<div class="search-item">无匹配结果</div>'; return; }
+    if (!hits.length) { box.innerHTML = '<div class="search-item">' + I18n.t('search.noResult') + '</div>'; return; }
     hits.forEach(({ n }) => {
       const div = document.createElement('div');
       div.className = 'search-item';
-      div.innerHTML = escapeHtml(n.text) + (n.note ? `<span class="path">📝 含备注</span>` : '');
+      div.innerHTML = escapeHtml(n.text) + (n.note ? `<span class="path">📝 ${I18n.t('search.note')}</span>` : '');
       div.onclick = () => {
         $('search-panel').classList.add('hidden');
         Render.select(n.id);
@@ -456,7 +479,7 @@
       else if (!root) { root = node; }
       stack[level] = node; stack.length = level + 1;
     }
-    return root || Model.createNode('中心主题');
+    return root || Model.createNode(I18n.t('node.center'));
   }
   function applyOutline() {
     const root = parseOutline($('outline-text').value);
@@ -464,12 +487,12 @@
     selectedId = null;
     markDirty();
     renderMap();
-    setStatus('已从大纲同步导图');
+    setStatus('status.outlineSynced');
   }
   function copyOutlineAsMd() {
     const out = [];
     serializeOutline(map.root, 0, out);
-    navigator.clipboard.writeText(out.join('\n')).then(() => setStatus('大纲已复制到剪贴板'));
+    navigator.clipboard.writeText(out.join('\n')).then(() => setStatus('status.outlineCopied'));
   }
 
   /* ----------------------- 演示 ----------------------- */
@@ -536,7 +559,7 @@
   /* ----------------------- 导出 ----------------------- */
 
   function defaultName(ext) {
-    const base = (map.meta.title || '思维导图').replace(/[\\/:*?"<>|]/g, '_');
+    const base = (map.meta.title || I18n.t('doc.untitled')).replace(/[\\/:*?"<>|]/g, '_');
     return base + '.' + ext;
   }
 
@@ -545,36 +568,36 @@
     const p = await window.mm.savePath(defaultName('png'));
     if (!p) return;
     const r = await window.mm.exportPNG(p, svgStr);
-    if (r && r.error) alert('PNG 导出失败：' + r.error);
-    else setStatus('已导出 PNG');
+    if (r && r.error) alert(I18n.t('alert.pngFail') + r.error);
+    else setStatus('status.exportedPNG');
   }
   async function exportSVG() {
     const svgStr = Render.getSVGString();
     const p = await window.mm.savePath(defaultName('svg'));
-    if (p) { await window.mm.writeText(p, svgStr); setStatus('已导出 SVG'); }
+    if (p) { await window.mm.writeText(p, svgStr); setStatus('status.exportedSVG'); }
   }
   async function exportMarkdown() {
     const out = [];
     serializeOutline(map.root, 0, out);
     const p = await window.mm.savePath(defaultName('md'));
-    if (p) { await window.mm.writeText(p, '# ' + (map.meta.title || '思维导图') + '\n\n' + out.join('\n') + '\n'); setStatus('已导出 Markdown'); }
+    if (p) { await window.mm.writeText(p, '# ' + (map.meta.title || I18n.t('doc.untitled')) + '\n\n' + out.join('\n') + '\n'); setStatus('status.exportedMD'); }
   }
   async function exportPDF() {
     const svgStr = Render.getSVGString();
     const p = await window.mm.savePath(defaultName('pdf'));
-    if (p) { const r = await window.mm.exportPDF(p, svgStr); if (r && r.error) alert('PDF 导出失败：' + r.error); else setStatus('已导出 PDF'); }
+    if (p) { const r = await window.mm.exportPDF(p, svgStr); if (r && r.error) alert(I18n.t('alert.pdfFail') + r.error); else setStatus('status.exportedPDF'); }
   }
 
   /* ----------------------- 文件操作 ----------------------- */
 
   function newMap() {
-    if (currentFilePath && !confirm('新建将丢失未保存的更改，继续？')) return;
+    if (currentFilePath && !confirm(I18n.t('confirm.newLose'))) return;
     map = makeSample();
     currentFilePath = null;
     selectedId = null;
     renderMap(); Render.fit();
     syncMenu();
-    setFileStatus(); setStatus('已新建');
+    setFileStatus(); setStatus('status.new');
     markClean(); setWindowTitle();
   }
 
@@ -587,7 +610,7 @@
     selectedId = null;
     renderMap(); Render.fit();
     syncMenu();
-    setFileStatus(); setStatus('已打开');
+    setFileStatus(); setStatus('status.open');
     markClean(); setWindowTitle();
   }
 
@@ -598,8 +621,8 @@
       currentFilePath = p;
     }
     const r = await window.mm.saveFile(currentFilePath, Model.serialize(map));
-    if (r && r.error) { alert('保存失败：' + r.error); return false; }
-    setFileStatus(); setStatus('已保存');
+    if (r && r.error) { alert(I18n.t('alert.saveFail') + r.error); return false; }
+    setFileStatus(); setStatus('status.saved');
     markClean(); setWindowTitle();
     return true;
   }
