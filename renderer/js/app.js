@@ -6,6 +6,7 @@
   let map = null;
   let currentFilePath = null;
   let selectedId = null;
+  let dirty = false; // 文档是否有未保存改动
 
   /* ----------------------- 初始化 ----------------------- */
 
@@ -58,6 +59,7 @@
     wireInspector();
     wireKeyboard();
     wirePanels();
+    wireCloseConfirm();
     if (window.mm && window.mm.onAction) window.mm.onAction(handleMenuAction);
     syncMenu(); // 把初始结构与主题同步给系统菜单（用于勾选）
 
@@ -98,7 +100,22 @@
     return '未命名';
   }
   function setWindowTitle() {
-    if (window.mm && window.mm.setTitle) window.mm.setTitle(docName());
+    const name = docName() + (dirty ? ' *' : '');
+    if (window.mm && window.mm.setTitle) window.mm.setTitle(name);
+  }
+
+  /* 标记文档为「有未保存改动」：标题加星号并通知主进程 */
+  function markDirty() {
+    if (dirty) return;
+    dirty = true;
+    setWindowTitle();
+    if (window.mm && window.mm.setDirty) window.mm.setDirty(true);
+  }
+  function markClean() {
+    if (!dirty) return;
+    dirty = false;
+    setWindowTitle();
+    if (window.mm && window.mm.setDirty) window.mm.setDirty(false);
   }
 
   /* ----------------------- 缩放指示（状态栏） ----------------------- */
@@ -122,6 +139,7 @@
     if (kind === 'child') node = Model.addChild(map, parentId, '新节点');
     else node = Model.addSibling(map, selectedId, '新节点');
     if (!node) return;
+    markDirty();
     renderMap();
     Render.select(node.id);
     startInlineEdit(node.id);
@@ -131,6 +149,7 @@
     if (!selectedId || selectedId === map.root.id) { setStatus('根节点不可删除'); return; }
     Model.deleteNode(map, selectedId);
     selectedId = null;
+    markDirty();
     renderMap();
     $('insp-body').classList.add('hidden');
     $('insp-empty').classList.remove('hidden');
@@ -141,6 +160,7 @@
     const r = Model.find(map, id);
     if (!r) return;
     r.node.collapsed = !r.node.collapsed;
+    markDirty();
     renderMap();
     Render.select(id);
   }
@@ -179,6 +199,7 @@
     if (!selectedId) return;
     const r = Model.find(map, selectedId);
     if (!r) return;
+    markDirty();
     const w = parseInt($('insp-width').value, 10);
     const h = parseInt($('insp-height').value, 10);
     r.node.width = (w > 0) ? w : 0;
@@ -219,6 +240,7 @@
     n.due = $('insp-due').value;
     n.link = $('insp-link').value;
     n.note = $('insp-note').value;
+    markDirty();
     renderMap(); // 仅重绘，不触发 onSelect，避免输入框光标跳位
   }
 
@@ -245,7 +267,7 @@
     const commit = (keep) => {
       if (done) return; done = true;
       const r = Model.find(map, id);
-      if (keep && r) { r.node.text = ta.value.trim() || '节点'; renderMap(); Render.select(id); }
+      if (keep && r) { r.node.text = ta.value.trim() || '节点'; markDirty(); renderMap(); Render.select(id); }
       ta.remove();
     };
     // 输入即同步到模型（不重绘，避免节点重建打断编辑）
@@ -326,6 +348,25 @@
     $('present-prev').onclick = () => presentNav(-1);
     $('present-next').onclick = () => presentNav(1);
   }
+
+  /* 关闭前保存确认弹窗 */
+  function wireCloseConfirm() {
+    if (window.mm && window.mm.onRequestClose) {
+      window.mm.onRequestClose(() => $('close-confirm').classList.remove('hidden'));
+    }
+    $('close-save').onclick = async () => {
+      const ok = await save(false); // 保存（未命名会先弹另存为）
+      $('close-confirm').classList.add('hidden');
+      if (ok && window.mm && window.mm.allowClose) window.mm.allowClose();
+    };
+    $('close-discard').onclick = () => {
+      $('close-confirm').classList.add('hidden');
+      if (window.mm && window.mm.allowClose) window.mm.allowClose();
+    };
+    $('close-cancel').onclick = () => {
+      $('close-confirm').classList.add('hidden'); // 取消关闭，留在软件内
+    };
+  }
   function runSearch(q) {
     const box = $('search-results'); box.innerHTML = '';
     if (!q) return;
@@ -385,6 +426,7 @@
     const root = parseOutline($('outline-text').value);
     map.root = root;
     selectedId = null;
+    markDirty();
     renderMap();
     setStatus('已从大纲同步导图');
   }
@@ -464,7 +506,7 @@
     renderMap(); Render.fit();
     syncMenu();
     setFileStatus(); setStatus('已新建');
-    setWindowTitle();
+    markClean(); setWindowTitle();
   }
 
   async function openMap() {
@@ -477,19 +519,20 @@
     renderMap(); Render.fit();
     syncMenu();
     setFileStatus(); setStatus('已打开');
-    setWindowTitle();
+    markClean(); setWindowTitle();
   }
 
   async function save(asNew) {
     if (!currentFilePath || asNew) {
       const p = await window.mm.savePath(defaultName('mdm'));
-      if (!p) return;
+      if (!p) return false; // 用户取消另存为
       currentFilePath = p;
     }
     const r = await window.mm.saveFile(currentFilePath, Model.serialize(map));
-    if (r && r.error) { alert('保存失败：' + r.error); return; }
+    if (r && r.error) { alert('保存失败：' + r.error); return false; }
     setFileStatus(); setStatus('已保存');
-    setWindowTitle();
+    markClean(); setWindowTitle();
+    return true;
   }
 
   /* ----------------------- 菜单动作（来自原生菜单） ----------------------- */
@@ -509,13 +552,13 @@
     if (map2[action]) return map2[action]();
     if (action.startsWith('structure:')) {
       map.meta.structure = action.slice(10);
-      renderMap(); syncMenu();
+      markDirty(); renderMap(); syncMenu();
     } else if (action.startsWith('direction:')) {
       map.meta.direction = action.slice(10);
-      renderMap(); syncMenu();
+      markDirty(); renderMap(); syncMenu();
     } else if (action.startsWith('theme:')) {
       map.meta.theme = action.slice(6);
-      renderMap(); syncMenu();
+      markDirty(); renderMap(); syncMenu();
     }
   }
 

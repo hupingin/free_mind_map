@@ -84,6 +84,19 @@
   <!-- 右键菜单 -->
   <div id="ctxmenu" class="hidden"></div>
 
+  <!-- 关闭前保存确认 -->
+  <div id="close-confirm" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-title">未保存的更改</div>
+      <div class="modal-msg">当前文档有未保存的更改，是否先保存再退出？</div>
+      <div class="modal-foot">
+        <button id="close-save" class="primary">保存</button>
+        <button id="close-discard">不保存</button>
+        <button id="close-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 搜索面板 -->
   <div id="search-panel" class="panel hidden">
     <div class="panel-head">

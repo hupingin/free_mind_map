@@ -128,3 +128,12 @@ html, body {
   border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
   background: #fff; color: #222; outline: none; box-shadow: 0 6px 20px rgba(0,0,0,.3);
 }
+
+/* ---------------- 关闭确认弹窗 ---------------- */
+.modal { position: fixed; inset: 0; z-index: 1300; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; }
+.modal-box { width: 360px; background: var(--panel-bg); border: 1px solid var(--ui-border); border-radius: 12px; padding: 22px; box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.modal-msg { font-size: 13px; color: var(--ui-muted); line-height: 1.6; margin-bottom: 20px; }
+.modal-foot { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-foot button { background: #2c2f3a; color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
+.modal-foot button.primary { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }

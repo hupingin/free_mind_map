@@ -39,4 +39,13 @@ contextBridge.exposeInMainWorld('mm', {
 
   /* 设置窗口标题栏文本（显示正在编辑的文档名） */
   setTitle: (name) => ipcRenderer.send('title:set', name),
+
+  /* 同步文档脏标记（是否有未保存改动） */
+  setDirty: (v) => ipcRenderer.send('doc:dirty', v),
+
+  /* 监听主进程的关闭确认请求（有未保存改动时触发） */
+  onRequestClose: (callback) => ipcRenderer.on('confirm-close', () => callback()),
+
+  /* 通知主进程：已决定，可以关闭窗口 */
+  allowClose: () => ipcRenderer.send('close:allow'),
 });

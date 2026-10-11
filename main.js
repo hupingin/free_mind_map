@@ -14,6 +14,8 @@ const crypto = require('crypto');
 
 let mainWindow = null;
 let currentFile = null; // { filePath, dir }
+let allowClose = false; // 渲染进程确认可关闭后置位
+let appDirty = false;   // 文档是否有未保存改动
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -32,6 +34,13 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // 关闭前若有未保存改动，先拦截，交由渲染进程弹出确认框
+  mainWindow.on('close', (e) => {
+    if (allowClose || !appDirty) return;
+    e.preventDefault();
+    mainWindow.webContents.send('confirm-close');
+  });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -402,6 +411,12 @@ ipcMain.on('menu:sync', (event, s) => {
 ipcMain.on('title:set', (event, name) => {
   if (mainWindow) mainWindow.setTitle(name || '未命名');
 });
+
+/* 渲染进程同步文档脏标记（是否有未保存改动） */
+ipcMain.on('doc:dirty', (event, v) => { appDirty = !!v; });
+
+/* 渲染进程确认可以关闭（保存/不保存后） */
+ipcMain.on('close:allow', () => { allowClose = true; if (mainWindow) mainWindow.close(); });
 
 app.whenReady().then(createWindow);
 
