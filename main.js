@@ -59,6 +59,7 @@ const menuState = {
   direction: 'right',
   theme: 'classic',
   themes: [],
+  inspector: false,
 };
 
 function sendAction(action) {
@@ -159,6 +160,8 @@ function buildMenu() {
         { label: '缩小', accelerator: 'CmdOrCtrl+-', click: () => sendAction('zoom-out') },
         { label: '重置缩放', accelerator: 'CmdOrCtrl+0', click: () => sendAction('zoom-reset') },
         { label: '适应窗口', accelerator: 'CmdOrCtrl+9', click: () => sendAction('zoom-fit') },
+        { type: 'separator' },
+        { label: '属性面板', type: 'checkbox', checked: menuState.inspector, accelerator: 'CmdOrCtrl+I', click: () => sendAction('toggle-inspector') },
         { type: 'separator' },
         { label: '大纲模式', accelerator: 'CmdOrCtrl+Shift+O', click: () => sendAction('outline') },
         { label: '搜索', accelerator: 'CmdOrCtrl+F', click: () => sendAction('search') },
@@ -404,6 +407,7 @@ ipcMain.on('menu:sync', (event, s) => {
   if (s.direction) menuState.direction = s.direction;
   if (s.theme) menuState.theme = s.theme;
   if (Array.isArray(s.themes)) menuState.themes = s.themes;
+  if (typeof s.inspector === 'boolean') menuState.inspector = s.inspector;
   rebuildMenu();
 });
 

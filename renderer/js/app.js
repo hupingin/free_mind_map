@@ -7,6 +7,7 @@
   let currentFilePath = null;
   let selectedId = null;
   let dirty = false; // 文档是否有未保存改动
+  let inspectorOpen = false; // 右侧属性面板是否打开
 
   /* ----------------------- 初始化 ----------------------- */
 
@@ -54,13 +55,13 @@
     Render.draw();
     Render.fit();
     updateZoom();
-    $('inspector').classList.remove('hidden');
 
     wireInspector();
     wireKeyboard();
     wirePanels();
     wireCloseConfirm();
     if (window.mm && window.mm.onAction) window.mm.onAction(handleMenuAction);
+    setInspector(false); // 属性面板默认关闭
     syncMenu(); // 把初始结构与主题同步给系统菜单（用于勾选）
 
     setStatus('就绪 · 示例导图已加载');
@@ -75,9 +76,27 @@
         direction: map.meta.direction,
         theme: map.meta.theme,
         themes: Themes.list(),
+        inspector: inspectorOpen,
       });
     }
   }
+
+  /* 打开 / 关闭右侧属性面板，并同步菜单勾选状态 */
+  function setInspector(open) {
+    inspectorOpen = !!open;
+    const el = $('inspector');
+    if (el) el.classList.toggle('hidden', !inspectorOpen);
+    // 浮动开关：箭头指向面板所在方向；面板显示时停靠在面板左缘，隐藏时停靠画面最右
+    const btn = $('btn-inspector-toggle');
+    if (btn) {
+      btn.classList.toggle('at-panel', inspectorOpen);
+      btn.textContent = inspectorOpen ? '›' : '‹';
+      btn.title = inspectorOpen ? '关闭属性面板（Ctrl+I）' : '打开属性面板（Ctrl+I）';
+    }
+    if (inspectorOpen && selectedId) updateInspector(selectedId); // 打开时刷新当前选中节点
+    syncMenu();
+  }
+  function toggleInspector() { setInspector(!inspectorOpen); }
 
   function renderMap() {
     Layout.layout(map);
@@ -359,6 +378,7 @@
     $('present-exit').onclick = () => $('present-overlay').classList.add('hidden');
     $('present-prev').onclick = () => presentNav(-1);
     $('present-next').onclick = () => presentNav(1);
+    $('btn-inspector-toggle').onclick = toggleInspector;
   }
 
   /* 关闭前保存确认弹窗 */
@@ -553,6 +573,7 @@
     const map2 = {
       'new': newMap, 'open': openMap, 'save': () => save(false), 'saveAs': () => save(true),
       'export-png': exportPNG, 'export-svg': exportSVG, 'export-md': exportMarkdown, 'export-pdf': exportPDF,
+      'toggle-inspector': toggleInspector,
       'outline': openOutline, 'search': openSearch, 'present': openPresent,
       'add-child': () => addNode('child'), 'add-sibling': () => addNode('sibling'),
       'collapse': toggleCollapse, 'delete': deleteSelected,

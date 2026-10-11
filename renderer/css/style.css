@@ -24,6 +24,21 @@ html, body {
 #canvas { flex: 1; width: 100%; height: 100%; background: #f4f6fb; cursor: grab; display: block; }
 #canvas text { user-select: none; }
 
+/* 画布浮动按钮（打开/关闭属性面板）：右侧垂直居中箭头标签 */
+.float-btn {
+  position: fixed; top: 50%; transform: translateY(-50%); right: 0; z-index: 800;
+  width: 26px; height: 60px;
+  background: var(--ui-bg2); color: var(--ui-text);
+  border: 1px solid var(--ui-border); border-right: none;
+  border-radius: 8px 0 0 8px;
+  font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.float-btn:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+/* 面板显示时：标签停靠在面板左边缘（面板宽 300px） */
+.float-btn.at-panel { right: 300px; border-right: 1px solid var(--ui-border); border-left: none; border-radius: 0 8px 8px 0; }
+
 /* ---------------- 检查器 ---------------- */
 #inspector {
   width: 300px; background: var(--ui-bg2);
