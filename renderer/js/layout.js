@@ -2,8 +2,8 @@
  * layout.js — 多结构自动布局引擎
  *
  * 支持结构：
- *   mindmap  思维导图（中心主题，左右平衡）
- *   logical  逻辑图（向右 / 向左，由 meta.direction 决定）
+ *   mindmap  思维导图（中心主题，全部向右）
+ *   logical  逻辑图（向右）
  *   tree     树形图（自上而下）
  *   org      组织结构图（自上而下，父节点居中）
  *   fishbone 鱼骨图（实验性）
@@ -167,27 +167,19 @@
     else { measureV(root); placeV(root, 0, 0, dir); }
   }
 
-  /* -------------------- 思维导图（平衡左右） -------------------- */
+  /* -------------------- 思维导图（全部向右，不允许在左边） -------------------- */
 
   function layoutMindmap(root) {
     measureNode(root);
     const kids = root.children || [];
-    const right = kids.filter((_, i) => i % 2 === 0);
-    const left = kids.filter((_, i) => i % 2 === 1);
-    right.forEach((c) => measureH(c));
-    left.forEach((c) => measureH(c));
-    const rightH = right.length ? right.reduce((s, c) => s + c._sh, 0) + V_GAP * (right.length - 1) : 0;
-    const leftH = left.length ? left.reduce((s, c) => s + c._sh, 0) + V_GAP * (left.length - 1) : 0;
-    const totalH = Math.max(root._h, rightH, leftH);
+    // 所有子节点统一放在右侧（无论第几个添加），不再按奇偶索引左右交替
+    kids.forEach((c) => measureH(c));
+    const rightH = kids.length ? kids.reduce((s, c) => s + c._sh, 0) + V_GAP * (kids.length - 1) : 0;
+    const totalH = Math.max(root._h, rightH);
     root._x = 0; root._y = (totalH - root._h) / 2;
-    if (right.length) {
+    if (kids.length) {
       let curY = (totalH - rightH) / 2;
-      right.forEach((c) => { c._orient = 'right'; placeH(c, root._w + H_GAP, curY, 'right'); curY += c._sh + V_GAP; });
-    }
-    if (left.length) {
-      let curY = (totalH - leftH) / 2;
-      const childSubW = Math.max(...left.map((c) => c._sw));
-      left.forEach((c) => { c._orient = 'left'; placeH(c, -H_GAP - childSubW, curY, 'left'); curY += c._sh + V_GAP; });
+      kids.forEach((c) => { c._orient = 'right'; placeH(c, root._w + H_GAP, curY, 'right'); curY += c._sh + V_GAP; });
     }
   }
 
@@ -275,7 +267,7 @@
     reset(map);
     const struct = map.meta.structure;
     if (struct === 'mindmap') layoutMindmap(map.root);
-    else if (struct === 'logical') layoutTree(map.root, map.meta.direction === 'left' ? 'left' : 'right');
+    else if (struct === 'logical') layoutTree(map.root, 'right');
     else if (struct === 'tree' || struct === 'org') layoutTree(map.root, 'bottom');
     else if (struct === 'fishbone') layoutFishbone(map.root);
     else if (struct === 'timeline') layoutTimeline(map.root);

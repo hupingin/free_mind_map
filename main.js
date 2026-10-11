@@ -142,8 +142,7 @@ function buildMenu() {
         {
           label: '方向',
           submenu: [
-            { label: '→ 向右', type: 'radio', checked: menuState.direction === 'right', click: () => setDirection('right') },
-            { label: '← 向左', type: 'radio', checked: menuState.direction === 'left', click: () => setDirection('left') },
+            { label: '→ 向右', type: 'radio', checked: true, click: () => setDirection('right') },
           ],
         },
         { type: 'separator' },

@@ -184,8 +184,24 @@ safe('collapse-hides', () => {
   window.Render.draw();
 });
 
+/* 验证"新节点只能在右边"：mindmap 与 logical 结构下，所有非根节点的 _orient 必须为 'right'（不允许 left） */
+let nodesAllRight = false;
+safe('nodes-all-right', () => {
+  ['mindmap', 'logical'].forEach((s) => {
+    m.meta.structure = s;
+    if (s === 'logical') m.meta.direction = 'left'; // 即便曾设为向左，也应被强制向右
+    window.Layout.layout(m);
+    window.Model.traverse(m.root, (n) => {
+      if (n === m.root) return;
+      if (n._orient !== 'right') throw new Error(`${s} 节点 ${n.id} 的 _orient=${n._orient}，应为 right`);
+    });
+  });
+  m.meta.structure = 'mindmap';
+  nodesAllRight = true;
+});
+
 const allLayoutsOk = Object.values(layoutResults).every((r) => r.ok);
-const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk && collapseTogglePresent && collapseHidesChildren;
+const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk && collapseTogglePresent && collapseHidesChildren && nodesAllRight;
 
 const summary = {
   ok,
@@ -198,6 +214,7 @@ const summary = {
   userWidthOk,
   collapseTogglePresent,
   collapseHidesChildren,
+  nodesAllRight,
 };
 console.log(JSON.stringify(summary, null, 2));
 process.exit(ok ? 0 : 1);
