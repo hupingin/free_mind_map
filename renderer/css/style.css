@@ -39,33 +39,38 @@ html, body {
 /* 面板显示时：标签停靠在面板左边缘（面板宽 300px） */
 .float-btn.at-panel { right: 300px; border-right: 1px solid var(--ui-border); border-left: none; border-radius: 0 8px 8px 0; }
 
-/* ---------------- 检查器 ---------------- */
+/* ---------------- 检查器（主题联动） ---------------- */
+/* 颜色由主题驱动（--insp-* 变量），切主题时由 app.js 写入，保证面板内一切一致 */
 #inspector {
-  width: 300px; background: var(--ui-bg2);
-  border-left: 1px solid var(--ui-border);
+  width: 300px;
+  background: var(--insp-bg, var(--ui-bg2));
+  border-left: 1px solid var(--insp-border, var(--ui-border));
+  color: var(--insp-text, var(--ui-text));
   padding: 14px; overflow-y: auto;
 }
 #inspector.hidden, .hidden { display: none !important; }
-.hint { color: var(--ui-muted); font-size: 13px; padding: 20px 4px; text-align: center; }
+.hint { color: var(--insp-muted, var(--ui-muted)); font-size: 13px; padding: 20px 4px; text-align: center; }
 .insp-row { margin-bottom: 12px; }
-.insp-row label { display: block; font-size: 12px; color: var(--ui-muted); margin-bottom: 4px; }
+.insp-row label { display: block; font-size: 12px; color: var(--insp-muted, var(--ui-muted)); margin-bottom: 4px; }
 .insp-row.two { display: flex; gap: 10px; }
 .insp-row.two > div { flex: 1; }
 #inspector textarea, #inspector input, #inspector select {
-  width: 100%; background: #15161d; color: var(--ui-text);
-  border: 1px solid var(--ui-border); border-radius: 6px;
+  width: 100%; background: var(--insp-input-bg, #15161d); color: var(--insp-text, var(--ui-text));
+  border: 1px solid var(--insp-border, var(--ui-border)); border-radius: 6px;
   padding: 7px 9px; font-size: 13px; font-family: inherit;
 }
-#inspector textarea:focus, #inspector input:focus { outline: none; border-color: var(--ui-accent); }
+#inspector textarea:focus, #inspector input:focus, #inspector select:focus { outline: none; border-color: var(--insp-accent, var(--ui-accent)); }
 .insp-img-btns { display: flex; gap: 8px; }
 .insp-img-btns button {
-  flex: 1; background: #2c2f3a; color: var(--ui-text);
-  border: 1px solid var(--ui-border); border-radius: 6px; padding: 7px; cursor: pointer; font-size: 12px;
+  flex: 1; background: var(--insp-input-bg, #2c2f3a); color: var(--insp-text, var(--ui-text));
+  border: 1px solid var(--insp-border, var(--ui-border)); border-radius: 6px; padding: 7px; cursor: pointer; font-size: 12px;
 }
+.insp-img-btns button:hover { border-color: var(--insp-accent, var(--ui-accent)); }
 #btn-insp-delete {
-  width: 100%; background: transparent; color: var(--ui-danger);
-  border: 1px solid var(--ui-danger); border-radius: 6px; padding: 8px; cursor: pointer; font-size: 13px;
+  width: 100%; background: transparent; color: var(--insp-accent, var(--ui-danger));
+  border: 1px solid var(--insp-accent, var(--ui-danger)); border-radius: 6px; padding: 8px; cursor: pointer; font-size: 13px;
 }
+#btn-insp-delete:hover { background: var(--insp-accent-soft, rgba(239,68,68,.1)); }
 
 /* ---------------- 状态栏 ---------------- */
 #status {
@@ -123,18 +128,20 @@ html, body {
 .panel-foot button { background: var(--ui-accent); color: #fff; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
 
 /* ---------------- 演示模式 ---------------- */
+/* 颜色由主题驱动（--ps-* 变量），切主题时由 app.js 写入，保证所有画面一致 */
 #present-overlay {
-  position: fixed; inset: 0; z-index: 1100; background: #11121a;
+  position: fixed; inset: 0; z-index: 1100; background: var(--ps-bg, #11121a);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 #present-content { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 40px; overflow: auto; }
-#present-content .slide-title { font-size: 34px; font-weight: 700; color: #fff; margin-bottom: 24px; text-align: center; }
+#present-content .slide-title { font-size: 34px; font-weight: 700; color: var(--ps-text, #fff); margin-bottom: 24px; text-align: center; }
 #present-content ul { list-style: none; padding: 0; margin: 0 auto; max-width: 720px; }
-#present-content li { font-size: 20px; color: #d7dbe8; padding: 8px 0 8px 26px; position: relative; border-left: 2px solid #3b6ef5; margin: 6px 0; background: rgba(59,110,245,.06); border-radius: 0 8px 8px 0; }
-#present-content li.sub { margin-left: 34px; border-left-color: #8b5cf6; font-size: 17px; }
-#present-content li.sub2 { margin-left: 68px; border-left-color: #10b981; font-size: 15px; }
-#present-nav { display: flex; align-items: center; gap: 14px; padding: 16px; color: var(--ui-muted); }
-#present-nav button { background: #2c2f3a; color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+#present-content li { font-size: 20px; color: var(--ps-text, #d7dbe8); padding: 8px 0 8px 26px; position: relative; border-left: 3px solid var(--ps-accent, #3b6ef5); margin: 6px 0; background: var(--ps-accent-soft, rgba(59,110,245,.06)); border-radius: 0 8px 8px 0; }
+#present-content li.sub { margin-left: 34px; border-left-color: var(--ps-accent2, #8b5cf6); font-size: 17px; }
+#present-content li.sub2 { margin-left: 68px; border-left-color: var(--ps-accent3, #10b981); font-size: 15px; }
+#present-nav { display: flex; align-items: center; gap: 14px; padding: 16px; color: var(--ps-text, #9aa0b0); }
+#present-nav button { background: var(--ps-accent-soft, rgba(59,110,245,.12)); color: var(--ps-accent, #3b6ef5); border: 1px solid var(--ps-accent, #3b6ef5); border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
+#present-nav button:hover { background: var(--ps-accent, #3b6ef5); color: #fff; }
 #present-indicator { min-width: 70px; text-align: center; }
 
 /* 内联编辑框 */

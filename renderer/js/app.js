@@ -54,6 +54,8 @@
     Render.setStructure(map.meta.structure);
     Render.draw();
     Render.fit();
+    applyInspectorTheme(); // 首开即让属性面板套用主题（init 走 Render.draw 不经 renderMap）
+    applyPresentTheme();   // 首开即让演示画面套用主题
     updateZoom();
 
     wireInspector();
@@ -105,6 +107,8 @@
     Render.setStructure(map.meta.structure);
     Render.draw();
     $('canvas').style.background = Themes.get(map.meta.theme).bg;
+    applyInspectorTheme(); // 属性面板随主题联动
+    applyPresentTheme();   // 演示画面随主题联动
   }
 
   function setStatus(t) { $('status-text').textContent = t; }
@@ -470,11 +474,44 @@
 
   /* ----------------------- 演示 ----------------------- */
 
+  // 把当前主题色写入演示模式容器的 CSS 变量，使演示画面随主题联动
+  function hexToRgba(hex, a) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    if (!m) return `rgba(59,110,245,${a})`;
+    return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+  }
+  function applyPresentTheme() {
+    const t = Themes.get(map.meta.theme);
+    const ov = $('present-overlay');
+    if (!ov) return;
+    ov.style.setProperty('--ps-bg', t.bg);
+    ov.style.setProperty('--ps-text', t.nodeText);
+    ov.style.setProperty('--ps-accent', t.rootFill);
+    ov.style.setProperty('--ps-accent2', t.line);
+    ov.style.setProperty('--ps-accent3', t.selected);
+    ov.style.setProperty('--ps-accent-soft', hexToRgba(t.rootFill, 0.1));
+  }
+
+  // 把当前主题色写入属性面板的 CSS 变量，使面板内一切随主题联动
+  function applyInspectorTheme() {
+    const t = Themes.get(map.meta.theme);
+    const el = $('inspector');
+    if (!el) return;
+    el.style.setProperty('--insp-bg', t.bg);
+    el.style.setProperty('--insp-text', t.nodeText);
+    el.style.setProperty('--insp-muted', t.line);
+    el.style.setProperty('--insp-border', t.nodeStroke);
+    el.style.setProperty('--insp-accent', t.rootFill);
+    el.style.setProperty('--insp-input-bg', t.nodeFill);
+    el.style.setProperty('--insp-accent-soft', hexToRgba(t.rootFill, 0.1));
+  }
+
   let slides = [], slideIdx = 0;
   function openPresent() {
     slides = (map.root.children && map.root.children.length) ? map.root.children : [map.root];
     slideIdx = 0;
     $('present-overlay').classList.remove('hidden');
+    applyPresentTheme(); // 让演示画面套用当前主题
     renderSlide();
   }
   function renderSlide() {
@@ -591,7 +628,10 @@
       markDirty(); renderMap(); syncMenu();
     } else if (action.startsWith('theme:')) {
       map.meta.theme = action.slice(6);
+      Render.setTheme(Themes.get(map.meta.theme));
       markDirty(); renderMap(); syncMenu();
+      applyPresentTheme(); // 切换主题时同步刷新演示画面
+      if (!$('present-overlay').classList.contains('hidden')) renderSlide();
     }
   }
 
