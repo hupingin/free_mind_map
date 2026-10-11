@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('mm', {
   /* 导出 PDF：由 SVG 字符串渲染后打印 */
   exportPDF: (filePath, svgStr) => ipcRenderer.invoke('export:pdf', filePath, svgStr),
 
+  /* 导出 PNG：由 SVG 字符串在隐藏窗口渲染后截图 */
+  exportPNG: (filePath, svgStr) => ipcRenderer.invoke('export:png', filePath, svgStr),
+
   /* 写入文本 / 二进制文件 */
   writeText: (filePath, text) => ipcRenderer.invoke('export:writeText', filePath, text),
   writeBinary: (filePath, dataURL) => ipcRenderer.invoke('export:writeBinary', filePath, dataURL),
@@ -33,4 +36,7 @@ contextBridge.exposeInMainWorld('mm', {
 
   /* 把当前结构/方向/主题/主题列表同步给系统菜单（用于勾选状态） */
   syncMenu: (state) => ipcRenderer.send('menu:sync', state),
+
+  /* 设置窗口标题栏文本（显示正在编辑的文档名） */
+  setTitle: (name) => ipcRenderer.send('title:set', name),
 });

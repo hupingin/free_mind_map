@@ -62,6 +62,7 @@
     syncMenu(); // 把初始结构与主题同步给系统菜单（用于勾选）
 
     setStatus('就绪 · 示例导图已加载');
+    setWindowTitle();
   }
 
   /* 把当前状态同步给系统菜单（结构/方向/主题/主题列表） */
@@ -87,6 +88,18 @@
 
   function setStatus(t) { $('status-text').textContent = t; }
   function setFileStatus() { $('status-file').textContent = currentFilePath ? '📁 ' + currentFilePath : '（未保存）'; }
+
+  /* 正在编辑的文档名：已保存取文件名（去扩展名），未保存显示"未命名" */
+  function docName() {
+    if (currentFilePath) {
+      const base = currentFilePath.split(/[\\/]/).pop();
+      return base.replace(/\.[^.]+$/, '');
+    }
+    return '未命名';
+  }
+  function setWindowTitle() {
+    if (window.mm && window.mm.setTitle) window.mm.setTitle(docName());
+  }
 
   /* ----------------------- 缩放指示（状态栏） ----------------------- */
 
@@ -418,20 +431,11 @@
 
   async function exportPNG() {
     const svgStr = Render.getSVGString();
-    const vb = /viewBox="([^"]+)"/.exec(svgStr);
-    const [, minX, minY, w, h] = vb[1].split(/\s+/).map(Number);
-    const img = new Image();
-    img.onload = () => {
-      const scale = 2;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.ceil(w * scale); canvas.height = Math.ceil(h * scale);
-      const ctx = canvas.getContext('2d');
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, w, h);
-      const dataURL = canvas.toDataURL('image/png');
-      window.mm.savePath(defaultName('png')).then((p) => { if (p) window.mm.writeBinary(p, dataURL).then(() => setStatus('已导出 PNG')); });
-    };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    const p = await window.mm.savePath(defaultName('png'));
+    if (!p) return;
+    const r = await window.mm.exportPNG(p, svgStr);
+    if (r && r.error) alert('PNG 导出失败：' + r.error);
+    else setStatus('已导出 PNG');
   }
   async function exportSVG() {
     const svgStr = Render.getSVGString();
@@ -460,6 +464,7 @@
     renderMap(); Render.fit();
     syncMenu();
     setFileStatus(); setStatus('已新建');
+    setWindowTitle();
   }
 
   async function openMap() {
@@ -472,6 +477,7 @@
     renderMap(); Render.fit();
     syncMenu();
     setFileStatus(); setStatus('已打开');
+    setWindowTitle();
   }
 
   async function save(asNew) {
@@ -483,6 +489,7 @@
     const r = await window.mm.saveFile(currentFilePath, Model.serialize(map));
     if (r && r.error) { alert('保存失败：' + r.error); return; }
     setFileStatus(); setStatus('已保存');
+    setWindowTitle();
   }
 
   /* ----------------------- 菜单动作（来自原生菜单） ----------------------- */

@@ -22,7 +22,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 600,
     backgroundColor: '#1e1f29',
-    title: 'Free Mind Map',
+    title: '未命名',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -358,6 +358,28 @@ ipcMain.handle('export:writeText', async (event, filePath, text) => {
   catch (e) { return { error: e.message }; }
 });
 
+ipcMain.handle('export:png', async (event, filePath, svgStr) => {
+  try {
+    // 解析 viewBox 得到画布尺寸，用隐藏窗口以真实 DOM 渲染后截图（避免 SVG→<img>→canvas 整张空白）
+    const vb = /viewBox="([^"]+)"/.exec(svgStr);
+    let w = 800, h = 600;
+    if (vb) { const p = vb[1].split(/\s+/).map(Number); w = Math.ceil(p[2]) || w; h = Math.ceil(p[3]) || h; }
+    const MAX = 8000;
+    w = Math.min(w, MAX); h = Math.min(h, MAX);
+    const win = new BrowserWindow({ show: false, width: w, height: h, webPreferences: { sandbox: false } });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff;overflow:hidden;}svg{display:block;}</style></head><body style="margin:0">${svgStr}</body></html>`;
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    await new Promise((r) => setTimeout(r, 200)); // 等一帧渲染
+    const image = await win.webContents.capturePage();
+    if (!image || image.isEmpty()) { win.destroy(); return { error: '截图为空，未能渲染 SVG' }; }
+    fs.writeFileSync(filePath, image.toPNG());
+    win.destroy();
+    return { ok: true };
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
 ipcMain.handle('export:writeBinary', async (event, filePath, dataURL) => {
   try {
     const comma = dataURL.indexOf(',');
@@ -374,6 +396,11 @@ ipcMain.on('menu:sync', (event, s) => {
   if (s.theme) menuState.theme = s.theme;
   if (Array.isArray(s.themes)) menuState.themes = s.themes;
   rebuildMenu();
+});
+
+/* 渲染进程通知主进程更新窗口标题栏（显示正在编辑的文档名） */
+ipcMain.on('title:set', (event, name) => {
+  if (mainWindow) mainWindow.setTitle(name || '未命名');
 });
 
 app.whenReady().then(createWindow);
