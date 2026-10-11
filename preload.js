@@ -56,4 +56,12 @@ contextBridge.exposeInMainWorld('mm', {
   onLangApply: (callback) => {
     ipcRenderer.on('lang:apply', (event, lang) => callback(lang));
   },
+
+  /* 把当前主题推给主进程，写回公共配置文件 */
+  setTheme: (theme) => ipcRenderer.send('theme:set', theme),
+
+  /* 接收主进程下发的公共配置（主题/语言），用于启动初始化 */
+  onConfigInit: (callback) => {
+    ipcRenderer.on('config:init', (event, cfg) => callback(cfg));
+  },
 });

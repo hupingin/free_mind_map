@@ -13,6 +13,30 @@ const path = require('path');
 const crypto = require('crypto');
 const I18n = require('./renderer/js/i18n');
 
+// 公共配置文件：存储跨会话共享的全局设置（主题、语言）。每次启动读取，每次修改后写回。
+// 注意：userData 路径惰性获取，避免 app ready 之前调用 getPath 抛错
+let CONFIG_PATH = null;
+function configPath() {
+  if (!CONFIG_PATH) CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+  return CONFIG_PATH;
+}
+let appConfig = { theme: 'classic', lang: 'zh' };
+
+function loadConfig() {
+  try {
+    const s = fs.readFileSync(configPath(), 'utf8');
+    const o = JSON.parse(s);
+    if (o && typeof o === 'object') {
+      if (typeof o.theme === 'string') appConfig.theme = o.theme;
+      if (typeof o.lang === 'string') appConfig.lang = o.lang;
+    }
+  } catch (e) { /* 文件不存在或损坏：保持默认 */ }
+}
+
+function saveConfig() {
+  try { fs.writeFileSync(configPath(), JSON.stringify(appConfig, null, 2)); } catch (e) { /* 忽略写入失败 */ }
+}
+
 let mainWindow = null;
 let currentFile = null; // { filePath, dir }
 let allowClose = false; // 渲染进程确认可关闭后置位
@@ -44,6 +68,11 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  // 启动后把公共配置（主题/语言）下发给渲染进程，使其按配置初始化界面
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow) mainWindow.webContents.send('config:init', { lang: appConfig.lang, theme: appConfig.theme });
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -92,9 +121,10 @@ function themeSubmenu() {
   return [{ label: I18n.t('menu.loading'), enabled: false }];
 }
 
-// 语言切换：更新主进程语言、重建菜单，并通知渲染进程同步界面
+// 语言切换：更新主进程语言、重建菜单，并通知渲染进程同步界面；同时写回公共配置
 function setLangTo(l) {
   I18n.setLang(l);
+  appConfig.lang = l; saveConfig();
   rebuildMenu();
   if (mainWindow) mainWindow.webContents.send('lang:apply', l);
 }
@@ -438,12 +468,15 @@ ipcMain.on('title:set', (event, name) => {
 ipcMain.on('doc:dirty', (event, v) => { appDirty = !!v; });
 
 /* 渲染进程启动后把已保存的语言推给主进程，使菜单同步（主进程据此重建菜单） */
-ipcMain.on('lang:set', (event, l) => { I18n.setLang(l); rebuildMenu(); });
+ipcMain.on('lang:set', (event, l) => { I18n.setLang(l); appConfig.lang = l; saveConfig(); rebuildMenu(); });
+
+/* 渲染进程切换主题后写回公共配置（语言/主题统一由配置文件长期保存） */
+ipcMain.on('theme:set', (event, t) => { appConfig.theme = t; saveConfig(); });
 
 /* 渲染进程确认可以关闭（保存/不保存后） */
 ipcMain.on('close:allow', () => { allowClose = true; if (mainWindow) mainWindow.close(); });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => { loadConfig(); I18n.setLang(appConfig.lang); createWindow(); });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

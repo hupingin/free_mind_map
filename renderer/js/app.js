@@ -8,12 +8,14 @@
   let selectedId = null;
   let dirty = false; // 文档是否有未保存改动
   let inspectorOpen = false; // 右侧属性面板是否打开
+  let preferredTheme = 'classic'; // 主进程下发的公共配置：默认主题（覆盖新建文档主题）
+  let pendingConfig = null; // 配置到达早于 init 完成时的暂存
 
   /* ----------------------- 初始化 ----------------------- */
 
   function makeSample() {
     const m = Model.createMap(I18n.t('sample.title'));
-    m.meta.theme = 'classic';
+    m.meta.theme = preferredTheme;
     m.meta.structure = 'mindmap';
     const r = m.root;
     r.icon = '🧠';
@@ -39,11 +41,6 @@
   function init() {
     map = makeSample();
 
-    // 恢复已保存的语言
-    const savedLang = (typeof localStorage !== 'undefined') ? localStorage.getItem('fmm.lang') : null;
-    if (savedLang) I18n.setLang(savedLang);
-    if (window.mm && window.mm.setLang) window.mm.setLang(I18n.getLang()); // 通知主进程重建菜单
-
     Render.init($('canvas'), {
       onSelect: (id) => { selectedId = id; updateInspector(id); },
       onEdit: (id) => startInlineEdit(id),
@@ -63,6 +60,9 @@
     applyPresentTheme();   // 首开即让演示画面套用主题
     updateZoom();
 
+    // 若公共配置在 init 之前已到达（极少见），此处补应用；否则由 onConfigInit 异步应用
+    if (pendingConfig) { applyConfig(pendingConfig); pendingConfig = null; }
+
     wireInspector();
     wireKeyboard();
     wirePanels();
@@ -75,13 +75,33 @@
     setStatus('status.ready');
     setWindowTitle();
 
-    // 主进程（菜单切语言）下发的语言切换：刷新界面文案并持久化
+    // 主进程（菜单切语言）下发的语言切换：刷新界面文案（语言已持久化到公共配置文件）
     if (window.mm && window.mm.onLangApply) {
       window.mm.onLangApply((lang) => {
         I18n.setLang(lang);
-        if (typeof localStorage !== 'undefined') localStorage.setItem('fmm.lang', lang);
         applyI18n();
       });
+    }
+
+    // 主进程下发的公共配置（启动读取 config.json 得到）：应用语言与默认主题
+    if (window.mm && window.mm.onConfigInit) {
+      window.mm.onConfigInit((cfg) => {
+        if (!cfg) return;
+        if (map) applyConfig(cfg);
+        else pendingConfig = cfg;
+      });
+    }
+  }
+
+  /* 应用公共配置：语言立即切换；主题作为偏好写入并套用到当前文档 */
+  function applyConfig(cfg) {
+    if (cfg.lang) { I18n.setLang(cfg.lang); applyI18n(); }
+    if (cfg.theme) {
+      preferredTheme = cfg.theme;
+      map.meta.theme = cfg.theme;
+      Render.setTheme(Themes.get(cfg.theme));
+      renderMap();
+      syncMenu();
     }
   }
 
@@ -651,10 +671,12 @@
       markDirty(); renderMap(); syncMenu();
     } else if (action.startsWith('theme:')) {
       map.meta.theme = action.slice(6);
+      preferredTheme = map.meta.theme;
       Render.setTheme(Themes.get(map.meta.theme));
       markDirty(); renderMap(); syncMenu();
       applyPresentTheme(); // 切换主题时同步刷新演示画面
       if (!$('present-overlay').classList.contains('hidden')) renderSlide();
+      if (window.mm && window.mm.setTheme) window.mm.setTheme(map.meta.theme); // 写回公共配置
     }
   }
 
