@@ -7,7 +7,7 @@
   const MIN_W = 46;
   const MIN_H = 28;
   const HANDLE = 14;
-  const DBG = false; // 调试开关：缩放拖拽相关日志（联调完成后关闭）
+  const DBG = true; // 调试开关（临时开启：图片渲染诊断，定位后关闭）
   const log = (...a) => { if (DBG && typeof console !== 'undefined') console.log('[FMM]', ...a); };
 
   const state = {
@@ -169,8 +169,13 @@
 
     let textTop = PAD_Y;
     if (n.image) {
-      const imgW = Math.min(IMG_MAX_W, n._w - 2 * PAD_X);
-      grp.appendChild(el('image', { x: (n._w - imgW) / 2, y: PAD_Y, width: imgW, height: IMG_H, href: n.image, preserveAspectRatio: 'xMidYMid meet' }));
+      const imgW = Math.max(1, Math.min(IMG_MAX_W, n._w - 2 * PAD_X));
+      const img = el('image', { x: (n._w - imgW) / 2, y: PAD_Y, width: imgW, height: IMG_H, preserveAspectRatio: 'xMidYMid meet' });
+      // SVG <image> 在内联 SVG 中图片源需 xlink:href 才能稳定渲染（单独 href 在 Chromium 内联 SVG 下常不显示）
+      img.setAttribute('href', n.image);
+      if (img.setAttributeNS) img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', n.image);
+      log('drawNode image:', n.id, 'imgW=', imgW, 'hrefPrefix=', String(n.image).slice(0, 48));
+      grp.appendChild(img);
       textTop = PAD_Y + IMG_H + 6;
     }
 
@@ -510,6 +515,7 @@
     clone.querySelectorAll('.collapse-toggle').forEach((h) => rmNode(h));
     const b = computeBounds();
     clone.setAttribute('xmlns', SVGNS);
+    clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
     clone.setAttribute('viewBox', `${b.minX} ${b.minY} ${b.width} ${b.height}`);
     clone.setAttribute('width', b.width);
     clone.setAttribute('height', b.height);

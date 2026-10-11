@@ -148,9 +148,11 @@
     $('btn-insp-image').onclick = async () => {
       if (!selectedId) return;
       const data = await window.mm.pickImage();
+      console.log('[FMM] pickImage result:', data ? ('len=' + data.length + ' prefix=' + data.slice(0, 30)) : 'NULL');
       if (!data) return;
       const r = Model.find(map, selectedId);
       r.node.image = data;
+      console.log('[FMM] set node.image, node=', r.node.id, 'imgLen=', (r.node.image || '').length);
       renderMap(); Render.select(selectedId);
     };
     $('btn-insp-del-image').onclick = () => {

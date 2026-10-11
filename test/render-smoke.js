@@ -17,6 +17,7 @@ const fs = require('fs');
 function makeEl(tag) {
   const el = { tag, attrs: {}, children: [], textContent: '', style: {}, _listeners: {}, parentNode: null };
   el.setAttribute = (k, v) => { el.attrs[k] = String(v); };
+  el.setAttributeNS = (ns, k, v) => { el.attrs[k] = String(v); }; // 垫片：忽略命名空间，仅记录属性
   el.getAttribute = (k) => (k in el.attrs ? el.attrs[k] : null);
   el.removeAttribute = (k) => { delete el.attrs[k]; };
   el.appendChild = (c) => { c.parentNode = el; el.children.push(c); return c; };
@@ -184,6 +185,21 @@ safe('collapse-hides', () => {
   window.Render.draw();
 });
 
+/* 验证图片节点渲染：带图片的节点 draw 后应生成 <image> 元素，且含 xlink:href（Electron/Chromium 内联 SVG 必需） */
+let imageRenders = false;
+safe('image-render', () => {
+  const someNode = m.root.children && m.root.children[0];
+  if (!someNode) return;
+  const dataURI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  someNode.image = dataURI;
+  someNode.width = 0; someNode.height = 0; // 复位为自动尺寸
+  window.Layout.layout(m);
+  window.Render.draw();
+  const vp = window.Render.getState().viewport;
+  const imgs = vp.querySelectorAll('image');
+  imageRenders = imgs.some((im) => (im.getAttribute('xlink:href') === dataURI) || (im.getAttribute('href') === dataURI));
+});
+
 /* 验证"新节点只能在右边"：mindmap 与 logical 结构下，所有非根节点的 _orient 必须为 'right'（不允许 left） */
 let nodesAllRight = false;
 safe('nodes-all-right', () => {
@@ -201,7 +217,7 @@ safe('nodes-all-right', () => {
 });
 
 const allLayoutsOk = Object.values(layoutResults).every((r) => r.ok);
-const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk && collapseTogglePresent && collapseHidesChildren && nodesAllRight;
+const ok = R.errors.length === 0 && allLayoutsOk && viewportChildren > 0 && svgValid && serializeOk && selectPersist && clickEditTriggered && userWidthOk && collapseTogglePresent && collapseHidesChildren && nodesAllRight && imageRenders;
 
 const summary = {
   ok,
@@ -215,6 +231,7 @@ const summary = {
   collapseTogglePresent,
   collapseHidesChildren,
   nodesAllRight,
+  imageRenders,
 };
 console.log(JSON.stringify(summary, null, 2));
 process.exit(ok ? 0 : 1);

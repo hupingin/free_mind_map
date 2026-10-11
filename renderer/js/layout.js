@@ -275,5 +275,5 @@
     return { bounds: computeBounds(map), root: map.root };
   }
 
-  window.Layout = { layout, measureNode, wrapText, constants: { FONT_SIZE, LINE_HEIGHT, PAD_X, PAD_Y, H_GAP, V_GAP } };
+  window.Layout = { layout, measureNode, wrapText, constants: { FONT_SIZE, LINE_HEIGHT, PAD_X, PAD_Y, H_GAP, V_GAP, IMG_H, IMG_MAX_W, MAX_W, MAX_TEXT_WIDTH } };
 })();
