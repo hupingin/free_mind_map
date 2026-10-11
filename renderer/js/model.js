@@ -126,8 +126,21 @@
     return true;
   }
 
+  /* 与相邻兄弟节点交换位置：dir=-1 与上一个交换，dir=+1 与下一个交换；
+     根节点（无兄弟）或在最顶/最底时返回 false（不移动）。 */
+  function swapSibling(map, nodeId, dir) {
+    const r = find(map, nodeId);
+    if (!r || !r.parent) return false; // 根节点没有兄弟
+    const arr = r.parent.children;
+    const i = arr.indexOf(r.node);
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return false; // 已在最上 / 最下
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    return true;
+  }
+
   window.Model = {
     uid, createNode, createMap, serialize, deserialize,
-    find, traverse, addChild, addSibling, deleteNode, moveNode,
+    find, traverse, addChild, addSibling, deleteNode, moveNode, swapSibling,
   };
 })();

@@ -167,6 +167,16 @@
 
   function toggleCollapse() { toggleCollapseById(selectedId); }
 
+  /* 与相邻兄弟节点交换位置（dir: -1 上移 / +1 下移） */
+  function moveSibling(id, dir) {
+    if (!id) return;
+    if (Model.swapSibling(map, id, dir)) {
+      markDirty();
+      renderMap();
+      Render.select(id); // 保持选中同一节点
+    }
+  }
+
   /* ----------------------- 检查器 ----------------------- */
 
   function wireInspector() {
@@ -322,6 +332,8 @@
       if (isTyping()) return;
       if (e.key === 'Tab') { e.preventDefault(); addNode('child'); }
       else if (e.key === 'Enter') { e.preventDefault(); addNode('sibling'); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (selectedId) moveSibling(selectedId, -1); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); if (selectedId) moveSibling(selectedId, 1); }
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
       else if (e.key === 'F2') { e.preventDefault(); if (selectedId) startInlineEdit(selectedId); }
     });
