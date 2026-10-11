@@ -1,6 +1,6 @@
 {
   "name": "free_mind_map",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Free Mind Map - 一个开源、免费、跨平台的思维导图软件（基于 Electron）",
   "main": "main.js",
   "author": "hupingin",
@@ -21,9 +21,11 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "dist": "electron-builder",
-    "test": "node test/render-smoke.js",
-    "lint": "node -e \"require('fs').readdirSync('.').forEach(f=>{})\""
+    "dist": "electron-builder --win",
+    "dist:dir": "electron-builder --win --dir",
+    "dist:portable": "electron-builder --win portable",
+    "dist:nsis": "electron-builder --win nsis",
+    "test": "node test/render-smoke.js"
   },
   "devDependencies": {
     "electron": "^30.5.1",
@@ -32,13 +34,27 @@
   "build": {
     "appId": "com.freemindmap.app",
     "productName": "Free Mind Map",
+    "copyright": "Copyright © 2026 hupingin",
+    "electronVersion": "30.5.1",
     "files": [
       "main.js",
       "preload.js",
       "renderer/**/*"
     ],
+    "win": {
+      "target": [
+        { "target": "dir", "arch": "x64" },
+        { "target": "portable", "arch": "x64" }
+      ],
+      "artifactName": "Free-Mind-Map-${version}-portable.exe",
+      "publisherName": "hupingin"
+    },
+    "portable": {
+      "artifactName": "Free-Mind-Map-${version}-portable.exe"
+    },
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     }
   }
 }
