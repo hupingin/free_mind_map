@@ -4,7 +4,7 @@
  * 职责：
  *  - 创建窗口、构建菜单
  *  - 通过 preload 暴露受控的文件系统 API（保证 contextIsolation 安全）
- *  - 处理 .mdm 文本文件的读写，以及图片资源外部化到 .swdt 文件夹
+ *  - 处理 .mdm 文本文件的读写，以及图片资源外部化到 <项目名>.swdt 文件夹
  */
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, nativeImage } = require('electron');
@@ -50,6 +50,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#1e1f29',
     title: '未命名',
+    icon: path.join(__dirname, 'renderer', 'assets', 'icon.ico'), // FMM 应用图标（窗口/任务栏）
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -286,9 +287,20 @@ function dataURIBuffer(dataURI) {
   return isBase64 ? Buffer.from(body, 'base64') : Buffer.from(decodeURIComponent(body), 'utf-8');
 }
 
-/* 保存：把内存里 data: URI 的图片外部化到 .swdt 文件夹，节点只保留文件名 */
-function externalizeImages(root, dir) {
-  const swdtDir = path.join(dir, '.swdt');
+/* 附属文件目录：<项目文件名>.swdt（如 demo.mdm → demo.swdt）。
+   读取时兼容旧版：若同名目录不存在而旧的通用 .swdt 存在，则回退读旧目录；写入始终用新命名。 */
+function swdtDirOf(dir, baseName, forWrite) {
+  const named = path.join(dir, baseName + '.swdt');
+  if (!forWrite) {
+    const legacy = path.join(dir, '.swdt');
+    if (!fs.existsSync(named) && fs.existsSync(legacy)) return legacy;
+  }
+  return named;
+}
+
+/* 保存：把内存里 data: URI 的图片外部化到 <项目名>.swdt 文件夹，节点只保留文件名 */
+function externalizeImages(root, dir, baseName) {
+  const swdtDir = swdtDirOf(dir, baseName, true);
   fs.mkdirSync(swdtDir, { recursive: true });
   const usedNames = new Set();
   walk(root, (n) => {
@@ -310,9 +322,9 @@ function externalizeImages(root, dir) {
   });
 }
 
-/* 打开：把 .swdt 里的图片读成 data URI 放回内存 */
-function internalizeImages(root, dir) {
-  const swdtDir = path.join(dir, '.swdt');
+/* 打开：把 <项目名>.swdt 里的图片读成 data URI 放回内存 */
+function internalizeImages(root, dir, baseName) {
+  const swdtDir = swdtDirOf(dir, baseName, false);
   walk(root, (n) => {
     if (n.image && typeof n.image === 'string' && !n.image.startsWith('data:') && !/^https?:/.test(n.image)) {
       try {
@@ -338,10 +350,11 @@ ipcMain.handle('map:open', async () => {
   if (res.canceled || !res.filePaths.length) return null;
   const filePath = res.filePaths[0];
   const dir = path.dirname(filePath);
+  const baseName = path.basename(filePath, path.extname(filePath));
   let json = fs.readFileSync(filePath, 'utf-8');
   try {
     const obj = JSON.parse(json);
-    internalizeImages(obj.root, dir);
+    internalizeImages(obj.root, dir, baseName);
     json = JSON.stringify(obj, null, 2);
   } catch (e) {
     return { error: I18n.t('err.parse') + e.message };
@@ -352,13 +365,14 @@ ipcMain.handle('map:open', async () => {
 
 ipcMain.handle('map:save', async (event, filePath, json) => {
   const dir = path.dirname(filePath);
+  const baseName = path.basename(filePath, path.extname(filePath));
   let obj;
   try {
     obj = JSON.parse(json);
   } catch (e) {
     return { error: '数据格式错误：' + e.message };
   }
-  externalizeImages(obj.root, dir);
+  externalizeImages(obj.root, dir, baseName);
   const out = JSON.stringify(obj, null, 2);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(filePath, out, 'utf-8');

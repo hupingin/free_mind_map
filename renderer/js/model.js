@@ -2,7 +2,7 @@
  * model.js — 数据模型与纯文本文件格式
  *
  * 文件格式（.mdm）：UTF-8 文本，内容为 JSON。
- * 节点中的图片在「内存」里以 data URI 存储；保存时由主进程外部化到同目录的 .swdt 文件夹，
+ * 节点中的图片在「内存」里以 data URI 存储；保存时由主进程外部化到同目录的 <文件名>.swdt 文件夹，
  * 节点仅保留文件名引用。详情见 main.js 的 externalizeImages / internalizeImages。
  */
 
@@ -24,7 +24,7 @@
       priority: '', // high | medium | low
       assignee: '',
       due: '',
-      image: '', // 内存中为 data URI；磁盘上为 .swdt 下的文件名
+      image: '', // 内存中为 data URI；磁盘上为 <文件名>.swdt 下的文件名
       imageName: '',
       collapsed: false,
       width: 0, // 用户手动设置的宽度（0 = 自动）

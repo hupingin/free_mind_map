@@ -42,6 +42,7 @@
       "renderer/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         { "target": "dir", "arch": "x64" },
         { "target": "portable", "arch": "x64" }
